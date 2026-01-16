@@ -205,6 +205,37 @@
 
 ---
 
+## Phase 10: Security Enhancement - Chainguard Default Runtime (Priority: P1)
+
+**Goal**: Switch to Chainguard JRE as default runtime for maximum security posture
+
+**Independent Test**: Build with defaults, verify image uses Chainguard JRE, confirm smaller size and fewer CVEs
+
+### Implementation Tasks
+
+- [X] T082 [P] Update Dockerfile default RUNTIME_IMAGE ARG to cgr.dev/chainguard/jre:latest
+- [X] T083 [P] Update Makefile default RUNTIME_IMAGE variable to cgr.dev/chainguard/jre:latest
+- [X] T084 Update README.md features section to highlight Chainguard as "Secure by Default"
+- [X] T085 Rename README "Chainguard Minimal Base Images" section to "Alternative Base Images"
+- [X] T086 Update README "Alternative Base Images" section to show Temurin as alternative (not default)
+- [X] T087 Update README architecture diagram to show Chainguard JRE as default runtime base
+- [X] T088 Update Makefile help examples to show Temurin as alternative instead of Chainguard
+- [X] T089 Update README "Pin Base Images by Digest" example to use Chainguard digest
+- [ ] T090 Test build with new defaults: verify Chainguard JRE pulls and builds successfully
+- [ ] T091 Compare image sizes: verify ~60% reduction (220MB → 90MB) with Chainguard vs Temurin
+- [ ] T092 Scan both images: verify Chainguard has significantly fewer CVEs (target: 0-2 vs 20-50)
+- [ ] T093 Test runtime functionality: verify smoke tests pass with Chainguard JRE
+- [ ] T094 Test distroless compatibility: verify no shell available (docker exec fails as expected)
+- [ ] T095 Test rollback scenario: verify RUNTIME_IMAGE=eclipse-temurin:17-jre override still works
+- [ ] T096 Update constitution-validation.md to reflect Chainguard as default
+- [ ] T097 Update quickstart.md if needed to mention Chainguard default
+- [ ] T098 Run full test suite: make clean && make build && make test
+- [ ] T099 Document security benefits in commit message and changelog
+
+**Checkpoint**: Chainguard JRE is default, provides measurable security improvements, Temurin fallback works
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
@@ -354,11 +385,13 @@ Once US2 complete:
 - **Phase 7 (US5 - Upstream Tracking)**: 8 tasks
 - **Phase 8 (US6 - Custom Config)**: 6 tasks
 - **Phase 9 (Validation)**: 12 tasks
+- **Phase 10 (Chainguard Default)**: 18 tasks (8 complete, 10 validation remaining)
 
-**Total**: 81 tasks
+**Total**: 99 tasks (89 complete, 10 remaining)
 
 **MVP Scope** (Phases 1-4 + minimal validation): ~40 tasks
 **Full Feature Set**: 81 tasks
+**With Security Enhancement**: 99 tasks
 
 ---
 
