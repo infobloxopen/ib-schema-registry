@@ -137,8 +137,8 @@
 - [X] T051 [US4] Add workflow step: Build and push with buildx (platforms: linux/amd64,linux/arm64)
 - [X] T052 [US4] Configure workflow buildx cache-from and cache-to for layer caching (GitHub Actions cache)
 - [X] T053 [US4] Configure workflow buildx push: true only on main branch (push: ${{ github.event_name != 'pull_request' }})
-- [ ] T054 [US4] Test workflow on PR: verify build succeeds but no registry push
-- [ ] T055 [US4] Test workflow on main push: verify build succeeds and image pushed to GHCR
+- [X] T054 [US4] Test workflow on PR: verify build succeeds but no registry push
+- [X] T055 [US4] Test workflow on main push: verify build succeeds and image pushed to GHCR
 
 **Checkpoint**: CI/CD automation complete with multi-arch builds and proper caching (SC-002: cold build <15 min, SC-003: warm build <5 min)
 
@@ -197,7 +197,7 @@
 - [X] T076 [P] Add README troubleshooting section: common build errors, platform issues, Maven cache
 - [X] T077 [P] Create CONTRIBUTING.md with development workflow: submodule updates, testing, PR process
 - [X] T078 Test smoke.sh on both linux/amd64 and linux/arm64 images (identical results required)
-- [ ] T079 Test quickstart.md steps from clean state: verify new contributor can build without external docs
+- [X] T079 Test quickstart.md steps from clean state: verify new contributor can build without external docs
 - [X] T080 Validate all constitution gates: multi-arch portability, base image pluggability, distroless compatibility, supply-chain security, licensing compliance, ergonomics, testing
 - [X] T081 Run final build validation: make clean && make submodule-init && make buildx && make test
 
