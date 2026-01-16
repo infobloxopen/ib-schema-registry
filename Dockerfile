@@ -2,7 +2,7 @@
 
 # Global build arguments (must be before first FROM)
 ARG BUILDER_IMAGE=maven:3-eclipse-temurin-17
-ARG RUNTIME_IMAGE=eclipse-temurin:17-jre
+ARG RUNTIME_IMAGE=cgr.dev/chainguard/jre:latest
 
 # =============================================================================
 # Builder Stage - Compile Schema Registry from upstream source

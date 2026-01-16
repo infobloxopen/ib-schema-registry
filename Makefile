@@ -12,9 +12,9 @@
 IMAGE ?= ib-schema-registry
 TAG ?= latest
 
-# Base images (override for Chainguard or other alternatives)
+# Base images (Chainguard JRE default for security, Maven for builder compatibility)
 BUILDER_IMAGE ?= maven:3-eclipse-temurin-17
-RUNTIME_IMAGE ?= eclipse-temurin:17-jre
+RUNTIME_IMAGE ?= cgr.dev/chainguard/jre:latest
 
 # Multi-architecture platforms
 PLATFORMS ?= linux/amd64,linux/arm64
@@ -66,7 +66,7 @@ help: ## Display available targets
 	@echo "Examples:"
 	@echo "  make build                          # Build for native platform"
 	@echo "  make buildx                         # Build for all platforms"
-	@echo "  make build RUNTIME_IMAGE=cgr.dev/chainguard/jre:latest  # Chainguard base"
+	@echo "  make build RUNTIME_IMAGE=eclipse-temurin:17-jre  # Temurin alternative"
 	@echo "  make push IMAGE=ghcr.io/infobloxopen/schema-registry TAG=v7.6.1"
 	@echo ""
 

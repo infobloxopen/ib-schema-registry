@@ -8,8 +8,8 @@
 ## Features
 
 ✅ **Multi-Architecture**: Native support for `linux/amd64` and `linux/arm64`  
-✅ **Pluggable Base Images**: Swap between Eclipse Temurin, Chainguard, or other JRE bases  
-✅ **Distroless Compatible**: No shell dependencies in runtime image  
+✅ **Secure by Default**: Chainguard distroless JRE runtime (~60% smaller, minimal CVEs)  
+✅ **Pluggable Base Images**: Swap between Chainguard (default), Eclipse Temurin, or other JRE bases  
 ✅ **Supply-Chain Security**: Non-root user (UID 65532), OCI labels, reproducible builds  
 ✅ **Developer Friendly**: Simple `make build` on macOS Apple Silicon or Linux x86  
 ✅ **CI/CD Ready**: GitHub Actions workflow with multi-arch buildx
@@ -200,17 +200,17 @@ See [Confluent documentation](https://docs.confluent.io/platform/current/schema-
 
 ## Advanced Usage
 
-### Chainguard Minimal Base Images
+### Alternative Base Images
 
-Reduce CVE surface area by swapping to [Chainguard](https://chainguard.dev/) minimal images:
+**Default**: Chainguard JRE (distroless, minimal CVEs)
+
+To use Eclipse Temurin instead:
 
 ```bash
-# Build with Chainguard JRE (distroless, minimal attack surface)
-make build \
-  BUILDER_IMAGE=cgr.dev/chainguard/maven:latest-dev \
-  RUNTIME_IMAGE=cgr.dev/chainguard/jre:latest
+# Build with Temurin JRE (larger image, more tooling)
+make build RUNTIME_IMAGE=eclipse-temurin:17-jre
 
-# Expected: Smaller image size, fewer CVEs
+# Note: Chainguard is ~60% smaller with significantly fewer CVEs
 ```
 
 ### Pin Base Images by Digest
@@ -220,7 +220,7 @@ For production, pin base images by digest for reproducibility:
 ```bash
 make build \
   BUILDER_IMAGE=maven@sha256:abc123... \
-  RUNTIME_IMAGE=eclipse-temurin@sha256:def456...
+  RUNTIME_IMAGE=cgr.dev/chainguard/jre@sha256:def456...
 ```
 
 ### Custom Image Tags
@@ -301,7 +301,7 @@ The repository includes a multi-arch CI workflow:
 │  └─ Output: kafka-schema-registry-*-standalone.jar  │
 ├─────────────────────────────────────────────────────┤
 │  Runtime Stage (TARGETPLATFORM)                      │
-│  ├─ Base: Eclipse Temurin 17 JRE                    │
+│  ├─ Base: Chainguard JRE (distroless, minimal CVEs) │
 │  ├─ User: 65532 (nobody, non-root)                  │
 │  ├─ Copy: Standalone JAR + config                   │
 │  ├─ Expose: Port 8081                               │
