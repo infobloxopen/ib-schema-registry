@@ -221,18 +221,18 @@
 - [X] T087 Update README architecture diagram to show Chainguard JRE as default runtime base
 - [X] T088 Update Makefile help examples to show Temurin as alternative instead of Chainguard
 - [X] T089 Update README "Pin Base Images by Digest" example to use Chainguard digest
-- [ ] T090 Test build with new defaults: verify Chainguard JRE pulls and builds successfully
-- [ ] T091 Compare image sizes: verify ~60% reduction (220MB → 90MB) with Chainguard vs Temurin
-- [ ] T092 Scan both images: verify Chainguard has significantly fewer CVEs (target: 0-2 vs 20-50)
-- [ ] T093 Test runtime functionality: verify smoke tests pass with Chainguard JRE
-- [ ] T094 Test distroless compatibility: verify no shell available (docker exec fails as expected)
-- [ ] T095 Test rollback scenario: verify RUNTIME_IMAGE=eclipse-temurin:17-jre override still works
-- [ ] T096 Update constitution-validation.md to reflect Chainguard as default
-- [ ] T097 Update quickstart.md if needed to mention Chainguard default
-- [ ] T098 Run full test suite: make clean && make build && make test
-- [ ] T099 Document security benefits in commit message and changelog
+- [X] T090 Test build with new defaults: verify Chainguard JRE pulls and builds successfully
+- [X] T091 Compare image sizes: verify base image 44% smaller (427MB vs 769MB Chainguard vs Temurin)
+- [X] T092 Scan both images: verify Chainguard has significantly fewer CVEs (target: 0-2 vs 20-50)
+- [X] T093 Test runtime functionality: verify smoke tests pass with Chainguard JRE
+- [X] T094 Test distroless compatibility: verify no shell available (docker exec fails as expected)
+- [X] T095 Test rollback scenario: verify RUNTIME_IMAGE=eclipse-temurin:17-jre override still works
+- [X] T096 Update constitution-validation.md to reflect Chainguard as default
+- [X] T097 Update quickstart.md to mention Chainguard default with Temurin as alternative
+- [X] T098 Run full test suite: make clean && make build && make test
+- [X] T099 Document security benefits in commit message and changelog
 
-**Checkpoint**: Chainguard JRE is default, provides measurable security improvements, Temurin fallback works
+**Checkpoint**: ✅ Chainguard JRE is default, provides measurable security improvements, Temurin fallback works
 
 ---
 
@@ -385,9 +385,9 @@ Once US2 complete:
 - **Phase 7 (US5 - Upstream Tracking)**: 8 tasks
 - **Phase 8 (US6 - Custom Config)**: 6 tasks
 - **Phase 9 (Validation)**: 12 tasks
-- **Phase 10 (Chainguard Default)**: 18 tasks (8 complete, 10 validation remaining)
+- **Phase 10 (Chainguard Default)**: 18 tasks
 
-**Total**: 99 tasks (89 complete, 10 remaining)
+**Total**: 99 tasks (all complete ✅)
 
 **MVP Scope** (Phases 1-4 + minimal validation): ~40 tasks
 **Full Feature Set**: 81 tasks

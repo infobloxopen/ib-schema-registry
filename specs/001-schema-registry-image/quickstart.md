@@ -95,27 +95,30 @@ docker buildx build --platform linux/amd64,linux/arm64 \
 
 ## Alternative Base Images
 
-### Build with Chainguard Images
+**Default (as of 2026-01-16)**: Chainguard JRE distroless runtime for maximum security
+
+### Build with Eclipse Temurin Instead
+
+If you need a traditional JRE with shell access for debugging:
 
 ```bash
-make build \
-  RUNTIME_IMAGE=cgr.dev/chainguard/jre:latest \
-  BUILDER_IMAGE=cgr.dev/chainguard/maven:latest-dev
+make build RUNTIME_IMAGE=eclipse-temurin:17-jre
 ```
 
-**Benefits**:
-- ~60% smaller image size (~90 MB vs ~220 MB)
+**Note**: Chainguard is recommended for production due to:
+- 44% smaller base image (427MB vs 769MB)
 - Significantly fewer CVEs (typically 0-2 vs 20-50 for Temurin)
 - Distroless runtime (no shell, minimal attack surface)
+- All smoke tests pass with both runtimes
 
 **Scan images to compare**:
 
 ```bash
-# Scan default Temurin-based image
-docker scan ghcr.io/infobloxopen/ib-schema-registry:dev
+# Scan default Chainguard-based image
+docker scan ib-schema-registry:latest
 
-# Scan Chainguard-based image
-docker scan ghcr.io/infobloxopen/ib-schema-registry:chainguard
+# Scan Temurin-based image (if built)
+docker scan ib-schema-registry:temurin
 ```
 
 ## Running with Kafka
