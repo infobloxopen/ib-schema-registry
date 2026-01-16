@@ -1,0 +1,68 @@
+# Git directories and metadata
+.git/
+.gitignore
+.gitattributes
+.github/
+
+# Specification and planning documents
+specs/
+docs/
+.specify/
+constitution-validation.md
+*.md
+!README.md
+
+# IDE and editor files
+.vscode/
+.idea/
+*.iml
+.project
+.classpath
+.settings/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Test files (only smoke tests, not unit tests in upstream)
+tests/
+*.test
+test-results/
+coverage/
+
+# Build artifacts (Maven builds in container)
+target/
+build/
+dist/
+*.jar
+*.war
+*.ear
+
+# Logs and temporary files
+*.log
+logs/
+*.tmp
+*.cache
+
+# Environment and secrets
+.env
+.env.local
+.env.*
+*.key
+*.pem
+secrets/
+
+# Docker artifacts
+.dockerignore
+*.tar
+*.tar.gz
+
+# CI/CD artifacts
+.testcontainers/
+
+# Build configuration (keep Makefile for reference only)
+# Makefile is read by humans, not needed in build

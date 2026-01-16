@@ -1,0 +1,69 @@
+# Maven build artifacts
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# Docker build artifacts
+*.tar
+*.tar.gz
+
+# Logs and temporary files
+*.log
+*.tmp
+*.swp
+*.swo
+*~
+logs/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.iml
+.project
+.classpath
+.settings/
+*.code-workspace
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Environment and secrets
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+secrets/
+
+# Docker volumes and data
+volumes/
+data/
+
+# Test artifacts
+coverage/
+.coverage
+htmlcov/
+*.cover
+test-results/
+*.test
+
+# Temporary test containers
+.testcontainers/
+
+# Build caches
+.cache/
+*.cache
+
+# Editor backups
+*~
+*.bak
+*.backup
