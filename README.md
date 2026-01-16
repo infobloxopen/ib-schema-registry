@@ -227,10 +227,10 @@ make build \
 
 ```bash
 # Build with custom name and version
-make build IMAGE=ghcr.io/infobloxopen/schema-registry TAG=v7.6.1
+make build IMAGE=ghcr.io/infobloxopen/schema-registry TAG=v8.1.1
 
 # Push to registry
-make push IMAGE=ghcr.io/infobloxopen/schema-registry TAG=v7.6.1
+make push IMAGE=ghcr.io/infobloxopen/schema-registry TAG=v8.1.1
 ```
 
 ### Update Upstream Version
