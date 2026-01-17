@@ -113,7 +113,6 @@ jobs:
   helm-e2e:
     needs: build
     runs-on: ubuntu-latest
-    if: github.event_name != 'pull_request'
     permissions:
       contents: read
       packages: read
@@ -121,6 +120,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
         
       - name: Set up Helm
         uses: azure/setup-helm@v3
@@ -131,19 +132,25 @@ jobs:
         run: |
           curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
 
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      - name: Pull and tag image for E2E tests
+      - name: Prepare image for E2E tests
         run: |
-          IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}"
-          echo "Pulling image: $IMAGE_TAG"
-          docker pull "$IMAGE_TAG"
-          docker tag "$IMAGE_TAG" "ib-schema-registry:test"
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            # For PRs, build the image locally (not pushed to registry)
+            echo "Building image locally for PR..."
+            docker buildx build --load -t ib-schema-registry:test .
+          else
+            # For pushes, pull the built image from GHCR
+            echo "Logging in to GHCR..."
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
+            
+            IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}"
+            echo "Pulling image: $IMAGE_TAG"
+            docker pull "$IMAGE_TAG"
+            docker tag "$IMAGE_TAG" "ib-schema-registry:test"
+          fi
 
       - name: Run Helm E2E tests
         run: bash tests/e2e/test-helm-chart.sh
