@@ -4,7 +4,7 @@ set -euo pipefail
 
 NAMESPACE="${NAMESPACE:-default}"
 RELEASE_NAME="${RELEASE_NAME:-schema-registry}"
-SERVICE_NAME="${RELEASE_NAME}"
+SERVICE_NAME="${RELEASE_NAME}-ib-schema-registry"
 
 echo "→ Validating Schema Registry API..."
 
