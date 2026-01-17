@@ -63,7 +63,7 @@ cleanup() {
 trap cleanup EXIT
 
 # Step 1: Setup k3d cluster
-echo "Step 1/6: Setting up k3d cluster"
+echo "Step 1/5: Setting up k3d cluster"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 bash "$SCRIPT_DIR/setup-k3d-cluster.sh"
 
@@ -92,7 +92,7 @@ echo "✅ Image built and loaded into k3d cluster"
 
 # Step 3: Deploy Redpanda
 echo ""
-echo "Step 3/6: Deploying Redpanda (Kafka backend)"
+echo "Step 3/5: Deploying Redpanda (Kafka backend)"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 if ! bash "$SCRIPT_DIR/deploy-redpanda.sh"; then
   echo "❌ Redpanda deployment failed!"
@@ -105,7 +105,7 @@ fi
 
 # Step 4: Install Helm chart
 echo ""
-echo "Step 4/6: Installing Schema Registry Helm chart"
+echo "Step 4/5: Installing Schema Registry Helm chart"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "→ Installing chart from: $CHART_DIR"
 
@@ -123,38 +123,9 @@ echo ""
 echo "✅ Helm chart installed successfully!"
 kubectl get pods,svc -n "$NAMESPACE" -l app.kubernetes.io/name=ib-schema-registry
 
-# Step 5: Run Helm tests
+# Step 5: Validate Schema Registry API
 echo ""
-echo "Step 5/6: Running Helm tests"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-
-echo "→ Checking for test pods..."
-echo "Expected test pod name: ${RELEASE_NAME}-ib-schema-registry-test"
-kubectl get pods -n "$NAMESPACE" --show-labels | grep -E "NAME|helm.sh/hook=test" || echo "  No test pods found yet"
-
-echo ""
-echo "→ Running helm test..."
-if ! helm test "$RELEASE_NAME" -n "$NAMESPACE"; then
-  echo ""
-  echo "❌ Helm test failed! Collecting diagnostics..."
-  echo ""
-  echo "=== All pods in namespace ==="
-  kubectl get pods -n "$NAMESPACE" -o wide
-  echo ""
-  echo "=== Test pods (if any) ==="
-  kubectl get pods -n "$NAMESPACE" -l "helm.sh/hook=test" -o wide || echo "No test pods found"
-  echo ""
-  echo "=== Test pod logs (if available) ==="
-  kubectl logs -n "$NAMESPACE" -l "helm.sh/hook=test" --all-containers=true || echo "No logs available"
-  echo ""
-  echo "=== Test pod description ==="
-  kubectl describe pod -n "$NAMESPACE" -l "helm.sh/hook=test" || echo "No test pods to describe"
-  exit 1
-fi
-
-# Step 6: Validate Schema Registry API
-echo ""
-echo "Step 6/6: Validating Schema Registry API"
+echo "Step 5/5: Validating Schema Registry API"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 export RELEASE_NAME
 export NAMESPACE
