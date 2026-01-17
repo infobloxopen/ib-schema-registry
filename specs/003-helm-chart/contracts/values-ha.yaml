@@ -1,0 +1,142 @@
+# High Availability values.yaml - Production Multi-Replica
+
+# This configuration provides a production-ready Schema Registry deployment with
+# high availability, zone distribution, and disruption budgets.
+
+# Number of replicas - 3 for HA (odd number for quorum-based decisions)
+replicaCount: 3
+
+# Container image configuration
+image:
+  repository: ghcr.io/infobloxopen/ib-schema-registry
+  pullPolicy: IfNotPresent
+  # Pinned by digest for production (example):
+  # tag: "8.1.1@sha256:abc123..."
+  tag: "8.1.1"
+
+# Image pull secrets for private registries
+# imagePullSecrets:
+#   - name: ghcr-credentials
+
+# Kafka connection (REQUIRED)
+config:
+  # Production Kafka cluster with multiple brokers
+  kafkaBootstrapServers: "kafka-0.kafka-headless:9092,kafka-1.kafka-headless:9092,kafka-2.kafka-headless:9092"
+  
+  # Additional Schema Registry properties
+  extraProperties:
+    # Schema compatibility checking mode
+    schema.compatibility.level: "BACKWARD"
+    
+    # Kafka security (if using SASL/SSL)
+    # kafkastore.security.protocol: "SASL_SSL"
+    # kafkastore.sasl.mechanism: "PLAIN"
+    # kafkastore.sasl.jaas.config: "org.apache.kafka.common.security.plain.PlainLoginModule required username=\"user\" password=\"pass\";"
+    
+    # TLS settings (if Kafka uses TLS)
+    # kafkastore.ssl.truststore.location: "/etc/schema-registry/secrets/truststore.jks"
+    # kafkastore.ssl.truststore.password: "changeit"
+
+# Resource limits - production settings with headroom
+resources:
+  requests:
+    memory: 1Gi
+    cpu: 500m
+  limits:
+    memory: 2Gi
+    cpu: 2000m
+
+# JVM heap sizing (70% of 2Gi = ~1.4Gi heap)
+jvm:
+  maxRAMPercentage: 70.0
+  # Additional JVM options for production
+  extraOpts: "-XX:+UseG1GC -XX:MaxGCPauseMillis=200"
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 8081
+  # Annotations for service mesh or load balancer
+  annotations:
+    # Example: Prometheus scraping
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8081"
+    prometheus.io/path: "/metrics"
+
+# Security context - production hardening
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  fsGroup: 65532
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+# High availability - PodDisruptionBudget ensures at least 2/3 replicas available
+podDisruptionBudget:
+  enabled: true
+  # minAvailable is calculated as ceiling(replicaCount / 2) = 2
+
+# Topology spread - distribute pods across availability zones
+topologySpreadConstraints:
+  enabled: true
+  maxSkew: 1  # Keep pod count per zone within 1 of each other
+  # Uses standard Kubernetes zone label: topology.kubernetes.io/zone
+
+# Health probes - production tuning
+livenessProbe:
+  httpGet:
+    path: /
+    port: 8081
+  initialDelaySeconds: 60  # Allow longer startup in production
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /subjects
+    port: 8081
+  initialDelaySeconds: 30
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3
+  successThreshold: 1
+
+# Service account with custom annotations
+serviceAccount:
+  create: true
+  name: ""  # Defaults to release name
+  # Annotations for cloud provider IAM integration
+  annotations: {}
+    # Example for AWS IRSA:
+    # eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/schema-registry-role
+    # Example for GCP Workload Identity:
+    # iam.gke.io/gcp-service-account: schema-registry@project-id.iam.gserviceaccount.com
+
+# Node affinity - prefer nodes with specific labels (optional)
+affinity:
+  nodeAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        preference:
+          matchExpressions:
+            - key: workload-type
+              operator: In
+              values:
+                - kafka-infrastructure
+
+# Tolerations for tainted nodes (optional)
+tolerations: []
+  # - key: "kafka-infra"
+  #   operator: "Equal"
+  #   value: "true"
+  #   effect: "NoSchedule"
+
+# Node selector - require specific node labels (optional)
+nodeSelector: {}
+  # workload-type: kafka-infrastructure
+  # topology.kubernetes.io/zone: us-west-2a

@@ -1,0 +1,136 @@
+{{- /*
+Post-installation notes template for Helm chart
+Rendered after helm install or helm upgrade completes
+*/ -}}
+
+NOTES:
+==================================================
+  Schema Registry has been deployed successfully!
+==================================================
+
+📋 Release Information:
+  - Name:      {{ .Release.Name }}
+  - Namespace: {{ .Release.Namespace }}
+  - Replicas:  {{ .Values.replicaCount }}
+
+🔗 Accessing Schema Registry:
+
+  {{- if eq .Values.service.type "ClusterIP" }}
+  
+  Schema Registry is available within the cluster at:
+  
+    http://{{ include "schema-registry.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.service.port }}
+
+  To access from your local machine, run:
+  
+    kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "schema-registry.fullname" . }} 8081:{{ .Values.service.port }}
+    
+  Then access the API at: http://localhost:8081
+
+  {{- else if eq .Values.service.type "NodePort" }}
+  
+  Schema Registry is exposed via NodePort.
+  
+  Get the NodePort:
+  
+    export NODE_PORT=$(kubectl get -n {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "schema-registry.fullname" . }})
+    export NODE_IP=$(kubectl get nodes -o jsonpath="{.items[0].status.addresses[0].address}")
+    
+  Access the API at: http://$NODE_IP:$NODE_PORT
+
+  {{- else if eq .Values.service.type "LoadBalancer" }}
+  
+  Schema Registry is exposed via LoadBalancer.
+  
+  Get the LoadBalancer IP:
+  
+    kubectl get svc -n {{ .Release.Namespace }} {{ include "schema-registry.fullname" . }} -w
+    
+  Access the API at: http://<EXTERNAL-IP>:{{ .Values.service.port }}
+
+  {{- end }}
+
+🧪 Testing the Deployment:
+
+  1. Check if all pods are running:
+  
+     kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/name={{ include "schema-registry.name" . }}
+
+  2. Test the API (list subjects):
+  
+     kubectl run -n {{ .Release.Namespace }} -it --rm debug --image=curlimages/curl --restart=Never -- \
+       curl -s http://{{ include "schema-registry.fullname" . }}:{{ .Values.service.port }}/subjects
+
+  3. Register a test schema:
+  
+     kubectl run -n {{ .Release.Namespace }} -it --rm debug --image=curlimages/curl --restart=Never -- \
+       curl -X POST -H "Content-Type: application/vnd.schemaregistry.v1+json" \
+       --data '{"schema": "{\"type\": \"string\"}"}' \
+       http://{{ include "schema-registry.fullname" . }}:{{ .Values.service.port }}/subjects/test-subject/versions
+
+  4. Run Helm tests:
+  
+     helm test {{ .Release.Name }} -n {{ .Release.Namespace }}
+
+📊 Monitoring:
+
+  View logs:
+  
+    kubectl logs -n {{ .Release.Namespace }} -l app.kubernetes.io/name={{ include "schema-registry.name" . }} --tail=100 -f
+
+  Check resource usage:
+  
+    kubectl top pods -n {{ .Release.Namespace }} -l app.kubernetes.io/name={{ include "schema-registry.name" . }}
+
+{{- if gt .Values.replicaCount 1 }}
+
+⚙️  High Availability:
+
+  - Replicas: {{ .Values.replicaCount }}
+  {{- if .Values.podDisruptionBudget.enabled }}
+  - PodDisruptionBudget: Ensures at least {{ div .Values.replicaCount 2 | add1 }} replicas remain during disruptions
+  {{- end }}
+  {{- if .Values.topologySpreadConstraints.enabled }}
+  - Topology Spread: Distributes pods across availability zones (maxSkew: {{ .Values.topologySpreadConstraints.maxSkew | default 1 }})
+  {{- end }}
+
+  Check pod distribution:
+  
+    kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/name={{ include "schema-registry.name" . }} -o wide
+
+{{- end }}
+
+🔧 Configuration:
+
+  Kafka Bootstrap Servers: {{ .Values.config.kafkaBootstrapServers }}
+
+  To update configuration:
+  
+    helm upgrade {{ .Release.Name }} CHART_PATH -n {{ .Release.Namespace }} --reuse-values --set config.kafkaBootstrapServers=NEW_VALUE
+
+  Configuration changes trigger automatic rolling updates via ConfigMap checksum annotations.
+
+📚 Documentation:
+
+  - Schema Registry API: https://docs.confluent.io/platform/current/schema-registry/develop/api.html
+  - Chart Repository: https://github.com/infobloxopen/ib-schema-registry
+  - Troubleshooting: https://github.com/infobloxopen/ib-schema-registry/blob/main/docs/troubleshooting.md
+
+{{- if not .Values.config.kafkaBootstrapServers }}
+
+⚠️  WARNING: Kafka bootstrap servers not configured!
+   Schema Registry will fail to start without valid Kafka connection.
+   Set config.kafkaBootstrapServers in values.yaml or via --set flag.
+
+{{- end }}
+
+{{- if lt .Values.replicaCount 3 }}
+
+ℹ️  NOTE: Running with {{ .Values.replicaCount }} replica(s).
+   For production high availability, consider deploying 3+ replicas.
+
+{{- end }}
+
+==================================================
+   Thank you for using Schema Registry!
+==================================================
