@@ -23,17 +23,24 @@
 - **Git**: For submodule management
 - **Make**: Build automation (pre-installed on macOS/Linux)
 
-### Verify Provenance (Supply-Chain Security)
+### Verify Provenance and SBOM (Supply-Chain Security)
 
-All published images include SLSA provenance attestations that allow you to verify the build origin and integrity:
+All published images from the main branch include SLSA provenance and SBOM attestations that allow you to verify the build origin, integrity, and component inventory:
 
 ```bash
 # Install cosign (one-time setup)
 go install github.com/sigstore/cosign/v2/cmd/cosign@latest
 
-# Verify image provenance signature
+# Verify image build provenance
 cosign verify-attestation \
   --type slsaprovenance \
+  --certificate-identity-regexp '^https://github.com/infobloxopen/ib-schema-registry/' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  ghcr.io/infobloxopen/ib-schema-registry:latest
+
+# Verify SBOM attestation (main branch builds only)
+cosign verify-attestation \
+  --type https://spdx.dev/Document \
   --certificate-identity-regexp '^https://github.com/infobloxopen/ib-schema-registry/' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
   ghcr.io/infobloxopen/ib-schema-registry:latest
@@ -41,7 +48,9 @@ cosign verify-attestation \
 # ✅ Success means: signature valid, built by trusted GitHub Actions workflow
 ```
 
-📘 **Full verification guide**: See [docs/provenance-verification.md](docs/provenance-verification.md) for comprehensive instructions on using cosign, slsa-verifier, and docker buildx to verify attestations.
+📘 **Full verification guides**: 
+- [Provenance Verification Guide](docs/provenance-verification.md) - Verify build provenance attestations
+- [SBOM Attestation Verification Guide](docs/sbom-attestation-verification.md) - Verify SBOM attestations and scan for vulnerabilities
 
 ### Build Image
 
@@ -437,17 +446,39 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development workflow, testing guideli
 
 ## SBOM (Software Bill of Materials)
 
-This project generates comprehensive SBOMs for all container images to enhance supply chain security and enable vulnerability tracking.
+This project generates comprehensive SBOMs for all container images built from the main branch, with cryptographic attestations binding each SBOM to the exact container image digest.
 
 ### Features
 
 ✅ **Dual Format Support**: CycloneDX 1.5 and SPDX 2.3  
 ✅ **Multi-Architecture**: Separate SBOMs for AMD64 and ARM64  
-✅ **Automated Generation**: CI/CD pipeline integration  
+✅ **Automated Generation**: Integrated into main build workflow  
+✅ **Cryptographically Bound**: SBOM attestations linked to image digest  
 ✅ **Vulnerability Scanning**: Compatible with Grype, Trivy, and Snyk  
-✅ **90-Day Retention**: SBOMs stored as GitHub Actions artifacts
+✅ **90-Day Retention**: SBOMs stored as GitHub Actions artifacts  
+✅ **Supply Chain Security**: Generated only from trusted main branch builds
 
-### Quick Start
+### Quick Start - Verify and Extract SBOM
+
+```bash
+# Install cosign (one-time setup)
+go install github.com/sigstore/cosign/v2/cmd/cosign@latest
+
+# Verify SBOM attestation and extract SBOM
+cosign verify-attestation \
+  --type https://spdx.dev/Document \
+  --certificate-identity-regexp '^https://github.com/infobloxopen/ib-schema-registry/' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  ghcr.io/infobloxopen/ib-schema-registry:latest \
+  | jq -r '.payload | @base64d | fromjson | .predicate' > sbom.spdx.json
+
+# Scan for vulnerabilities
+grype sbom:./sbom.spdx.json
+```
+
+### Local SBOM Generation
+
+For local development and testing:
 
 ```bash
 # Build image
@@ -465,7 +496,7 @@ grype sbom:build/sbom/latest-amd64.cyclonedx.json
 
 ### Multi-Architecture SBOMs
 
-Generate SBOMs for all platforms:
+Generate SBOMs for all platforms locally:
 
 ```bash
 # Build multi-arch image
@@ -477,20 +508,64 @@ make sbom-multi
 
 ### CI/CD Integration
 
-SBOMs are automatically generated in GitHub Actions:
+SBOMs are automatically generated in GitHub Actions **only for main branch builds**:
 
-- **Trigger**: Every push to main, tags, and PRs
+- **Trigger**: Pushes to `main` branch (not PRs or feature branches)
 - **Platforms**: linux/amd64, linux/arm64
 - **Formats**: CycloneDX JSON and SPDX JSON
+- **Attestations**: Cryptographically signed and bound to image digest
 - **Artifacts**: Available for download (90-day retention)
 
 Download SBOMs from GitHub Actions:
 
 ```bash
 # Using GitHub CLI
-gh run download <run-id> -n sbom-cyclonedx-amd64
-gh run download <run-id> -n sbom-spdx-amd64
+gh run list --repo infobloxopen/ib-schema-registry --branch main --limit 1
+gh run download <run-id> -n sbom-artifacts
+
+# Files downloaded:
+# - sbom-amd64.cyclonedx.json (vulnerability scanning)
+# - sbom-amd64.spdx.json (attestation format)
+# - sbom-arm64.cyclonedx.json (vulnerability scanning)
+# - sbom-arm64.spdx.json (attestation format)
 ```
+
+### SBOM Attestation Verification
+
+Full verification workflow combining build provenance and SBOM:
+
+```bash
+IMAGE="ghcr.io/infobloxopen/ib-schema-registry:latest"
+
+# 1. Verify build provenance
+echo "Verifying build provenance..."
+cosign verify-attestation \
+  --type slsaprovenance \
+  --certificate-identity-regexp '^https://github.com/infobloxopen/ib-schema-registry/' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  "$IMAGE"
+
+# 2. Verify SBOM attestation
+echo "Verifying SBOM attestation..."
+cosign verify-attestation \
+  --type https://spdx.dev/Document \
+  --certificate-identity-regexp '^https://github.com/infobloxopen/ib-schema-registry/' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  "$IMAGE"
+
+# 3. Extract and analyze SBOM
+echo "Extracting SBOM..."
+cosign verify-attestation \
+  --type https://spdx.dev/Document \
+  --certificate-identity-regexp '^https://github.com/infobloxopen/ib-schema-registry/' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  "$IMAGE" \
+  | jq -r '.payload | @base64d | fromjson | .predicate' > sbom.spdx.json
+
+echo "✅ Complete supply chain verification successful"
+```
+
+📘 **Full SBOM documentation**: See [docs/sbom-attestation-verification.md](docs/sbom-attestation-verification.md) for comprehensive verification, vulnerability scanning, and compliance guidance.
 
 ### Available Make Targets
 
