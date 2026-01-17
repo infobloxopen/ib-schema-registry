@@ -21,6 +21,7 @@ jobs:
       contents: read
       packages: write
       id-token: write  # Required for OIDC token generation for attestation signing
+      attestations: write  # Required for GitHub Artifact Attestations
       
     steps:
       - name: Checkout repository
@@ -159,7 +160,104 @@ jobs:
           fi
 
       - name: Image digest
-        run: echo ${{ steps.meta.outputs.digest }}
+        run: echo ${{ steps.build.outputs.digest }}
+
+      # =============================================================================
+      # SBOM Generation and Attestations (Main Branch Only)
+      # =============================================================================
+      # Generate SBOM from the built container image and create attestations
+      # binding the SBOM to the exact artifact. Only runs on pushes to main branch.
+      
+      - name: Install Syft for SBOM generation
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          echo "Installing Syft for SBOM generation..."
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+          syft version
+      
+      - name: Generate SBOM for AMD64
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          echo "Generating SBOM for linux/amd64..."
+          mkdir -p build/sbom
+          
+          # Pull AMD64 image from registry using digest
+          IMAGE_REF="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}"
+          echo "Pulling AMD64 image: ${IMAGE_REF}"
+          docker pull --platform linux/amd64 "${IMAGE_REF}"
+          
+          # Generate CycloneDX SBOM (primary format)
+          syft "${IMAGE_REF}" \
+            --platform linux/amd64 \
+            --output cyclonedx-json=build/sbom/sbom-amd64.cyclonedx.json
+          
+          # Generate SPDX SBOM (compliance format)
+          syft "${IMAGE_REF}" \
+            --platform linux/amd64 \
+            --output spdx-json=build/sbom/sbom-amd64.spdx.json
+          
+          # Validate generated SBOMs
+          echo "Validating SBOMs..."
+          jq empty build/sbom/sbom-amd64.cyclonedx.json
+          jq empty build/sbom/sbom-amd64.spdx.json
+          echo "✅ AMD64 SBOMs generated and validated"
+      
+      - name: Generate SBOM for ARM64
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          echo "Generating SBOM for linux/arm64..."
+          
+          # Pull ARM64 image from registry using digest
+          IMAGE_REF="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}"
+          echo "Pulling ARM64 image: ${IMAGE_REF}"
+          docker pull --platform linux/arm64 "${IMAGE_REF}"
+          
+          # Generate CycloneDX SBOM (primary format)
+          syft "${IMAGE_REF}" \
+            --platform linux/arm64 \
+            --output cyclonedx-json=build/sbom/sbom-arm64.cyclonedx.json
+          
+          # Generate SPDX SBOM (compliance format)
+          syft "${IMAGE_REF}" \
+            --platform linux/arm64 \
+            --output spdx-json=build/sbom/sbom-arm64.spdx.json
+          
+          # Validate generated SBOMs
+          echo "Validating SBOMs..."
+          jq empty build/sbom/sbom-arm64.cyclonedx.json
+          jq empty build/sbom/sbom-arm64.spdx.json
+          echo "✅ ARM64 SBOMs generated and validated"
+      
+      - name: Attest SBOM for AMD64
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/attest-sbom@v2
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          sbom-path: build/sbom/sbom-amd64.spdx.json
+          push-to-registry: true
+      
+      - name: Attest SBOM for ARM64
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/attest-sbom@v2
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          sbom-path: build/sbom/sbom-arm64.spdx.json
+          push-to-registry: true
+      
+      - name: Upload SBOM artifacts
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-artifacts
+          path: |
+            build/sbom/sbom-amd64.cyclonedx.json
+            build/sbom/sbom-amd64.spdx.json
+            build/sbom/sbom-arm64.cyclonedx.json
+            build/sbom/sbom-arm64.spdx.json
+          retention-days: 90
+          if-no-files-found: error
 
   test:
     needs: build
@@ -246,91 +344,3 @@ jobs:
           kubectl get events -A --sort-by='.lastTimestamp' || true
           echo "=== Schema Registry logs ==="
           kubectl logs -l app.kubernetes.io/name=ib-schema-registry --tail=100 || true
-
-  sbom:
-    name: Generate SBOM
-    needs: build
-    runs-on: ubuntu-latest
-    if: github.event_name != 'pull_request'
-    permissions:
-      contents: read
-      packages: read
-    
-    strategy:
-      matrix:
-        platform:
-          - name: amd64
-            full: linux/amd64
-          - name: arm64
-            full: linux/arm64
-    
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      
-      - name: Install Syft
-        run: |
-          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
-          syft version
-      
-      - name: Install Grype
-        run: |
-          curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
-          grype version
-      
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      
-      - name: Pull image for SBOM generation
-        run: |
-          IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
-          echo "Pulling image: $IMAGE_TAG"
-          docker pull "$IMAGE_TAG" --platform ${{ matrix.platform.full }}
-          docker tag "$IMAGE_TAG" "ib-schema-registry:sbom-${{ matrix.platform.name }}"
-      
-      - name: Generate CycloneDX SBOM
-        run: |
-          mkdir -p build/sbom
-          syft "ib-schema-registry:sbom-${{ matrix.platform.name }}" \
-            --platform ${{ matrix.platform.full }} \
-            --output cyclonedx-json=build/sbom/${{ github.sha }}-${{ matrix.platform.name }}.cyclonedx.json
-      
-      - name: Generate SPDX SBOM
-        run: |
-          syft "ib-schema-registry:sbom-${{ matrix.platform.name }}" \
-            --platform ${{ matrix.platform.full }} \
-            --output spdx-json=build/sbom/${{ github.sha }}-${{ matrix.platform.name }}.spdx.json
-      
-      - name: Validate SBOMs
-        run: |
-          echo "Validating CycloneDX SBOM..."
-          jq empty build/sbom/${{ github.sha }}-${{ matrix.platform.name }}.cyclonedx.json
-          
-          echo "Validating SPDX SBOM..."
-          jq empty build/sbom/${{ github.sha }}-${{ matrix.platform.name }}.spdx.json
-          
-          echo "✓ Both SBOMs are valid JSON"
-      
-      - name: Scan for vulnerabilities
-        continue-on-error: true
-        run: |
-          echo "Scanning SBOM for vulnerabilities..."
-          grype sbom:build/sbom/${{ github.sha }}-${{ matrix.platform.name }}.cyclonedx.json || true
-      
-      - name: Upload CycloneDX SBOM
-        uses: actions/upload-artifact@v4
-        with:
-          name: sbom-cyclonedx-${{ matrix.platform.name }}
-          path: build/sbom/${{ github.sha }}-${{ matrix.platform.name }}.cyclonedx.json
-          retention-days: 90
-      
-      - name: Upload SPDX SBOM
-        uses: actions/upload-artifact@v4
-        with:
-          name: sbom-spdx-${{ matrix.platform.name }}
-          path: build/sbom/${{ github.sha }}-${{ matrix.platform.name }}.spdx.json
-          retention-days: 90
