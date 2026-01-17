@@ -73,7 +73,7 @@ run_test() {
 
 test_syft_installed() {
     if command -v syft &> /dev/null; then
-        local version=$(syft version | grep -oP 'Version:\s+\K[\d.]+' || echo "unknown")
+        local version=$(syft version 2>&1 | grep -i version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1 || echo "unknown")
         log_info "Syft version: $version"
         return 0
     else

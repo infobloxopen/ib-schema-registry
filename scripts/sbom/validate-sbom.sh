@@ -17,7 +17,7 @@
 #   - Grype v0.65.0+ for vulnerability scanning
 #   - jq for JSON validation
 #
-# Constitution: Aligns with supply-chain security principles
+# Note: Aligns with supply-chain security principles
 # =============================================================================
 
 set -euo pipefail
@@ -59,7 +59,7 @@ fi
 HAS_GRYPE=false
 if command -v grype &> /dev/null; then
     HAS_GRYPE=true
-    GRYPE_VERSION=$(grype version | grep -oP 'Version:\s+\K[\d.]+' || echo "unknown")
+    GRYPE_VERSION=$(grype version 2>&1 | grep -i version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1 || echo "unknown")
     echo "→ Found Grype version: $GRYPE_VERSION"
 else
     echo "Warning: Grype not found - vulnerability scanning will be skipped" >&2

@@ -72,7 +72,7 @@ if ! command -v syft &> /dev/null; then
 fi
 
 # Check Syft version (require v1.0.0+)
-SYFT_VERSION=$(syft version | grep -oP 'Version:\s+\K[\d.]+' || echo "0.0.0")
+SYFT_VERSION=$(syft version 2>&1 | grep -i version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1 || echo "0.0.0")
 REQUIRED_VERSION="1.0.0"
 
 version_gte() {
