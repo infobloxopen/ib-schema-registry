@@ -415,8 +415,6 @@ This repository contains **build tooling only** (MIT licensed). The actual Confl
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development workflow, testing guidelines, and PR process.
 
-## Support
-
 ## SBOM (Software Bill of Materials)
 
 This project generates comprehensive SBOMs for all container images to enhance supply chain security and enable vulnerability tracking.
