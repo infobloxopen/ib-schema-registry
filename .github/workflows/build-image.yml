@@ -166,3 +166,91 @@ jobs:
           kubectl get events -A --sort-by='.lastTimestamp' || true
           echo "=== Schema Registry logs ==="
           kubectl logs -l app.kubernetes.io/name=ib-schema-registry --tail=100 || true
+
+  sbom:
+    name: Generate SBOM
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: read
+      packages: read
+    
+    strategy:
+      matrix:
+        platform:
+          - name: amd64
+            full: linux/amd64
+          - name: arm64
+            full: linux/arm64
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Install Syft
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+          syft version
+      
+      - name: Install Grype
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
+          grype version
+      
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Pull image for SBOM generation
+        run: |
+          IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
+          echo "Pulling image: $IMAGE_TAG"
+          docker pull "$IMAGE_TAG" --platform ${{ matrix.platform.full }}
+          docker tag "$IMAGE_TAG" "ib-schema-registry:sbom-${{ matrix.platform.name }}"
+      
+      - name: Generate CycloneDX SBOM
+        run: |
+          mkdir -p build/sbom
+          syft "ib-schema-registry:sbom-${{ matrix.platform.name }}" \
+            --platform ${{ matrix.platform.full }} \
+            --output cyclonedx-json=build/sbom/${{ github.sha }}-${{ matrix.platform.name }}.cyclonedx.json
+      
+      - name: Generate SPDX SBOM
+        run: |
+          syft "ib-schema-registry:sbom-${{ matrix.platform.name }}" \
+            --platform ${{ matrix.platform.full }} \
+            --output spdx-json=build/sbom/${{ github.sha }}-${{ matrix.platform.name }}.spdx.json
+      
+      - name: Validate SBOMs
+        run: |
+          echo "Validating CycloneDX SBOM..."
+          jq empty build/sbom/${{ github.sha }}-${{ matrix.platform.name }}.cyclonedx.json
+          
+          echo "Validating SPDX SBOM..."
+          jq empty build/sbom/${{ github.sha }}-${{ matrix.platform.name }}.spdx.json
+          
+          echo "✓ Both SBOMs are valid JSON"
+      
+      - name: Scan for vulnerabilities
+        continue-on-error: true
+        run: |
+          echo "Scanning SBOM for vulnerabilities..."
+          grype sbom:build/sbom/${{ github.sha }}-${{ matrix.platform.name }}.cyclonedx.json || true
+      
+      - name: Upload CycloneDX SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-cyclonedx-${{ matrix.platform.name }}
+          path: build/sbom/${{ github.sha }}-${{ matrix.platform.name }}.cyclonedx.json
+          retention-days: 90
+      
+      - name: Upload SPDX SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-spdx-${{ matrix.platform.name }}
+          path: build/sbom/${{ github.sha }}-${{ matrix.platform.name }}.spdx.json
+          retention-days: 90

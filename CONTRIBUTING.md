@@ -32,6 +32,10 @@ make build
 
 # Run tests
 make test
+
+# Generate and validate SBOM
+make sbom
+make sbom-validate
 ```
 
 ### Project Structure
@@ -45,6 +49,13 @@ make test
 ├── CONTRIBUTING.md             # This file
 ├── config/
 │   └── schema-registry.properties  # Default configuration
+├── scripts/
+│   └── sbom/                   # SBOM generation scripts
+│       ├── generate-sbom.sh    # Generate SBOM for image
+│       └── validate-sbom.sh    # Validate SBOM format
+├── build/
+│   └── sbom/                   # Generated SBOM files (gitignored)
+│       └── README.md           # SBOM documentation
 ├── .github/
 │   └── workflows/
 │       └── build-image.yml     # CI/CD pipeline
@@ -310,6 +321,32 @@ Example: `7.6.1+infoblox.1`
    - Pushes to ghcr.io with version tag
 
 ## Common Development Tasks
+
+### Testing SBOM Generation
+
+```bash
+# Install SBOM tools (Syft and Grype)
+make sbom-install-tools
+
+# Build image
+make build TAG=test
+
+# Generate SBOM for native architecture
+make sbom SBOM_TAG=test
+
+# Validate SBOM and scan for vulnerabilities
+make sbom-validate SBOM_TAG=test
+
+# Generate SBOMs for all architectures
+make buildx TAG=test
+make sbom-multi SBOM_TAG=test
+
+# Manually scan with Grype
+grype sbom:build/sbom/test-amd64.cyclonedx.json
+
+# Clean up SBOM artifacts
+make sbom-clean
+```
 
 ### Testing Different Base Images
 

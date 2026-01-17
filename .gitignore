@@ -72,3 +72,8 @@ test-results/
 *.tgz
 chart/*.tgz
 .helmignore.tmp
+
+# SBOM build artifacts
+build/sbom/*.json
+build/sbom/*.metadata.json
+!build/sbom/README.md

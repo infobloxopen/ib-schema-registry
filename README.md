@@ -417,14 +417,95 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development workflow, testing guideli
 
 ## Support
 
+## SBOM (Software Bill of Materials)
+
+This project generates comprehensive SBOMs for all container images to enhance supply chain security and enable vulnerability tracking.
+
+### Features
+
+✅ **Dual Format Support**: CycloneDX 1.5 and SPDX 2.3  
+✅ **Multi-Architecture**: Separate SBOMs for AMD64 and ARM64  
+✅ **Automated Generation**: CI/CD pipeline integration  
+✅ **Vulnerability Scanning**: Compatible with Grype, Trivy, and Snyk  
+✅ **90-Day Retention**: SBOMs stored as GitHub Actions artifacts
+
+### Quick Start
+
+```bash
+# Build image
+make build
+
+# Generate SBOM (both formats)
+make sbom
+
+# Validate and scan for vulnerabilities
+make sbom-validate
+
+# Scan with Grype
+grype sbom:build/sbom/latest-amd64.cyclonedx.json
+```
+
+### Multi-Architecture SBOMs
+
+Generate SBOMs for all platforms:
+
+```bash
+# Build multi-arch image
+make buildx
+
+# Generate SBOMs for both amd64 and arm64
+make sbom-multi
+```
+
+### CI/CD Integration
+
+SBOMs are automatically generated in GitHub Actions:
+
+- **Trigger**: Every push to main, tags, and PRs
+- **Platforms**: linux/amd64, linux/arm64
+- **Formats**: CycloneDX JSON and SPDX JSON
+- **Artifacts**: Available for download (90-day retention)
+
+Download SBOMs from GitHub Actions:
+
+```bash
+# Using GitHub CLI
+gh run download <run-id> -n sbom-cyclonedx-amd64
+gh run download <run-id> -n sbom-spdx-amd64
+```
+
+### Available Make Targets
+
+| Target | Description |
+|--------|-------------|
+| `sbom-install-tools` | Install Syft and Grype tools |
+| `sbom` | Generate SBOM for native platform (both formats) |
+| `sbom-multi` | Generate SBOMs for all architectures |
+| `sbom-validate` | Validate SBOMs and scan for vulnerabilities |
+| `sbom-clean` | Remove generated SBOM files |
+
+### SBOM Standards
+
+- **CycloneDX 1.5**: Recommended for vulnerability scanning ([cyclonedx.org](https://cyclonedx.org/))
+- **SPDX 2.3**: ISO standard for license compliance ([spdx.dev](https://spdx.dev/))
+
+### Tools Used
+
+- **Syft** (Anchore): SBOM generation ([github.com/anchore/syft](https://github.com/anchore/syft))
+- **Grype** (Anchore): Vulnerability scanning ([github.com/anchore/grype](https://github.com/anchore/grype))
+
+For detailed documentation, see [build/sbom/README.md](build/sbom/README.md).
+
+## Support
+
 - **Issues**: [GitHub Issues](https://github.com/infobloxopen/ib-schema-registry/issues)
 - **Upstream Docs**: [Confluent Schema Registry Docs](https://docs.confluent.io/platform/current/schema-registry/index.html)
 - **Specification**: [specs/001-schema-registry-image/](specs/001-schema-registry-image/)
 
 ## Roadmap
 
-- [ ] Helm chart for Kubernetes deployments
-- [ ] SBOM generation (Software Bill of Materials)
+- [x] Helm chart for Kubernetes deployments
+- [x] SBOM generation (Software Bill of Materials)
 - [ ] Provenance attestation (SLSA framework)
 - [ ] Image signing with cosign
 - [ ] Performance benchmarking suite

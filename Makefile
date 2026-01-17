@@ -192,3 +192,106 @@ helm-test-e2e: ## Run end-to-end tests with k3d
 	bash tests/e2e/test-helm-chart.sh
 	@echo "✓ E2E tests passed"
 
+# -----------------------------------------------------------------------------
+# SBOM Generation Targets (Feature 004)
+# -----------------------------------------------------------------------------
+
+SBOM_DIR := build/sbom
+SBOM_TAG ?= $(TAG)
+
+.PHONY: sbom-install-tools
+sbom-install-tools: ## Install SBOM generation tools (Syft, Grype)
+	@echo "→ Installing SBOM tools..."
+	@echo "  Installing Syft..."
+	@curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+	@echo "  Installing Grype..."
+	@curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
+	@echo "✓ SBOM tools installed"
+	@echo ""
+	@syft version
+	@grype version
+
+.PHONY: sbom
+sbom: ## Generate SBOM for built image (both CycloneDX and SPDX)
+	@echo "→ Generating SBOM for $(IMAGE):$(SBOM_TAG)..."
+	@mkdir -p $(SBOM_DIR)
+	@echo "  Platform: $(NATIVE_PLATFORM)"
+	@echo ""
+	@echo "→ Generating CycloneDX SBOM..."
+	@bash scripts/sbom/generate-sbom.sh \
+		$(IMAGE):$(SBOM_TAG) \
+		cyclonedx-json \
+		$(SBOM_DIR)/$(SBOM_TAG)-$(NATIVE_ARCH).cyclonedx.json \
+		$(NATIVE_PLATFORM)
+	@echo ""
+	@echo "→ Generating SPDX SBOM..."
+	@bash scripts/sbom/generate-sbom.sh \
+		$(IMAGE):$(SBOM_TAG) \
+		spdx-json \
+		$(SBOM_DIR)/$(SBOM_TAG)-$(NATIVE_ARCH).spdx.json \
+		$(NATIVE_PLATFORM)
+	@echo ""
+	@echo "✓ SBOM generation complete"
+	@echo ""
+	@echo "Generated files:"
+	@ls -lh $(SBOM_DIR)/$(SBOM_TAG)-$(NATIVE_ARCH).*
+	@echo ""
+	@echo "Next steps:"
+	@echo "  make sbom-validate SBOM_TAG=$(SBOM_TAG)  # Validate and scan for vulnerabilities"
+
+.PHONY: sbom-multi
+sbom-multi: ## Generate SBOMs for all platforms (amd64 + arm64)
+	@echo "→ Generating multi-architecture SBOMs for $(IMAGE):$(SBOM_TAG)..."
+	@mkdir -p $(SBOM_DIR)
+	@echo ""
+	@echo "→ Generating SBOMs for linux/amd64..."
+	@bash scripts/sbom/generate-sbom.sh \
+		$(IMAGE):$(SBOM_TAG) \
+		cyclonedx-json \
+		$(SBOM_DIR)/$(SBOM_TAG)-amd64.cyclonedx.json \
+		linux/amd64
+	@bash scripts/sbom/generate-sbom.sh \
+		$(IMAGE):$(SBOM_TAG) \
+		spdx-json \
+		$(SBOM_DIR)/$(SBOM_TAG)-amd64.spdx.json \
+		linux/amd64
+	@echo ""
+	@echo "→ Generating SBOMs for linux/arm64..."
+	@bash scripts/sbom/generate-sbom.sh \
+		$(IMAGE):$(SBOM_TAG) \
+		cyclonedx-json \
+		$(SBOM_DIR)/$(SBOM_TAG)-arm64.cyclonedx.json \
+		linux/arm64
+	@bash scripts/sbom/generate-sbom.sh \
+		$(IMAGE):$(SBOM_TAG) \
+		spdx-json \
+		$(SBOM_DIR)/$(SBOM_TAG)-arm64.spdx.json \
+		linux/arm64
+	@echo ""
+	@echo "✓ Multi-architecture SBOM generation complete"
+	@echo ""
+	@echo "Generated files:"
+	@ls -lh $(SBOM_DIR)/$(SBOM_TAG)-*.{cyclonedx,spdx}.json 2>/dev/null || true
+	@echo ""
+	@echo "Next steps:"
+	@echo "  make sbom-validate SBOM_TAG=$(SBOM_TAG)  # Validate all SBOMs"
+
+.PHONY: sbom-validate
+sbom-validate: ## Validate SBOMs and scan for vulnerabilities
+	@echo "→ Validating SBOMs for $(SBOM_TAG)..."
+	@echo ""
+	@for sbom_file in $(SBOM_DIR)/$(SBOM_TAG)-*.json; do \
+		if [ -f "$$sbom_file" ]; then \
+			echo "═══════════════════════════════════════════════════════"; \
+			bash scripts/sbom/validate-sbom.sh "$$sbom_file"; \
+			echo ""; \
+		fi; \
+	done
+	@echo "✓ All SBOM validations complete"
+
+.PHONY: sbom-clean
+sbom-clean: ## Remove generated SBOM files
+	@echo "→ Cleaning SBOM directory..."
+	@rm -rf $(SBOM_DIR)
+	@echo "✓ SBOM directory cleaned"
+
