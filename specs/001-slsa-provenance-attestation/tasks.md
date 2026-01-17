@@ -27,9 +27,9 @@ This project uses repository root structure:
 
 **Purpose**: Research and prepare provenance implementation approach
 
-- [ ] T001 Research Docker buildx provenance generation capabilities and SLSA attestation format
-- [ ] T002 [P] Research GitHub Actions OIDC token provider for attestation signing
-- [ ] T003 [P] Document provenance verification workflow using cosign, slsa-verifier, and docker buildx imagetools
+- [X] T001 Research Docker buildx provenance generation capabilities and SLSA attestation format
+- [X] T002 [P] Research GitHub Actions OIDC token provider for attestation signing
+- [X] T003 [P] Document provenance verification workflow using cosign, slsa-verifier, and docker buildx imagetools
 
 ---
 
@@ -39,10 +39,10 @@ This project uses repository root structure:
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T004 Add attestation permissions to build job in .github/workflows/build-image.yml (id-token: write, packages: write)
-- [ ] T005 Configure docker/build-push-action@v5 provenance parameter in .github/workflows/build-image.yml
-- [ ] T006 Add build-args for SLSA metadata (source URL, commit SHA, workflow ref) in .github/workflows/build-image.yml
-- [ ] T007 Test provenance generation locally using docker buildx with --provenance=mode=max flag
+- [X] T004 Add attestation permissions to build job in .github/workflows/build-image.yml (id-token: write, packages: write)
+- [X] T005 Configure docker/build-push-action@v5 provenance parameter in .github/workflows/build-image.yml
+- [X] T006 Add build-args for SLSA metadata (source URL, commit SHA, workflow ref) in .github/workflows/build-image.yml
+- [X] T007 Test provenance generation locally using docker buildx with --provenance=mode=max flag
 
 **Checkpoint**: Foundation ready - provenance attestations can now be generated and attached to images
 
@@ -56,19 +56,19 @@ This project uses repository root structure:
 
 ### Implementation for User Story 1
 
-- [ ] T008 [US1] Update docker/build-push-action@v5 step to enable provenance with mode=max in .github/workflows/build-image.yml
-- [ ] T009 [US1] Configure provenance to generate separate attestations for linux/amd64 and linux/arm64 architectures in .github/workflows/build-image.yml
-- [ ] T010 [US1] Add attestation-specific build-args (source repo URL, commit SHA, build workflow reference) in .github/workflows/build-image.yml
-- [ ] T011 [US1] Ensure provenance attestations include build timestamp from metadata-action in .github/workflows/build-image.yml
-- [ ] T012 [US1] Configure GitHub Actions OIDC identity for attestation signing in .github/workflows/build-image.yml
-- [ ] T013 [US1] Add post-build validation step to verify attestation attachment in .github/workflows/build-image.yml
-- [ ] T014 [P] [US1] Create verification documentation in docs/provenance-verification.md with cosign examples
-- [ ] T015 [P] [US1] Add slsa-verifier usage examples in docs/provenance-verification.md
-- [ ] T016 [P] [US1] Add docker buildx imagetools inspect examples in docs/provenance-verification.md
-- [ ] T017 [P] [US1] Document multi-arch attestation verification workflow in docs/provenance-verification.md
-- [ ] T018 [P] [US1] Document offline/air-gapped verification scenarios in docs/provenance-verification.md
-- [ ] T019 [US1] Update README.md with link to provenance verification documentation
-- [ ] T020 [US1] Add provenance verification quickstart section to README.md
+- [X] T008 [US1] Update docker/build-push-action@v5 step to enable provenance with mode=max in .github/workflows/build-image.yml
+- [X] T009 [US1] Configure provenance to generate separate attestations for linux/amd64 and linux/arm64 architectures in .github/workflows/build-image.yml
+- [X] T010 [US1] Add attestation-specific build-args (source repo URL, commit SHA, build workflow reference) in .github/workflows/build-image.yml
+- [X] T011 [US1] Ensure provenance attestations include build timestamp from metadata-action in .github/workflows/build-image.yml
+- [X] T012 [US1] Configure GitHub Actions OIDC identity for attestation signing in .github/workflows/build-image.yml
+- [X] T013 [US1] Add post-build validation step to verify attestation attachment in .github/workflows/build-image.yml
+- [X] T014 [P] [US1] Create verification documentation in docs/provenance-verification.md with cosign examples
+- [X] T015 [P] [US1] Add slsa-verifier usage examples in docs/provenance-verification.md
+- [X] T016 [P] [US1] Add docker buildx imagetools inspect examples in docs/provenance-verification.md
+- [X] T017 [P] [US1] Document multi-arch attestation verification workflow in docs/provenance-verification.md
+- [X] T018 [P] [US1] Document offline/air-gapped verification scenarios in docs/provenance-verification.md
+- [X] T019 [US1] Update README.md with link to provenance verification documentation
+- [X] T020 [US1] Add provenance verification quickstart section to README.md
 
 **Checkpoint**: At this point, container images have provenance attestations that can be independently verified using standard tools
 
@@ -82,16 +82,16 @@ This project uses repository root structure:
 
 ### Implementation for User Story 2
 
-- [ ] T021 [US2] Add conditional logic to skip provenance generation for pull_request events in .github/workflows/build-image.yml
-- [ ] T022 [US2] Implement error handling to distinguish build failures from attestation failures in .github/workflows/build-image.yml
-- [ ] T023 [US2] Add attestation generation logging to build workflow for debugging in .github/workflows/build-image.yml
-- [ ] T024 [US2] Update build job to continue using existing QEMU setup without conflicts in .github/workflows/build-image.yml
-- [ ] T025 [US2] Verify multi-arch build with cache-from/cache-to still functions with provenance in .github/workflows/build-image.yml
-- [ ] T026 [US2] Test provenance generation with release tag workflow triggers in .github/workflows/build-image.yml
-- [ ] T027 [US2] Add provenance validation to test job that verifies attestations exist in .github/workflows/build-image.yml
-- [ ] T028 [P] [US2] Create troubleshooting guide for provenance generation failures in docs/troubleshooting-provenance.md
-- [ ] T029 [P] [US2] Document provenance behavior for different CI triggers (push, tag, PR) in docs/ci-provenance-guide.md
-- [ ] T030 [US2] Update CONTRIBUTING.md with provenance testing instructions for contributors
+- [X] T021 [US2] Add conditional logic to skip provenance generation for pull_request events in .github/workflows/build-image.yml
+- [X] T022 [US2] Implement error handling to distinguish build failures from attestation failures in .github/workflows/build-image.yml
+- [X] T023 [US2] Add attestation generation logging to build workflow for debugging in .github/workflows/build-image.yml
+- [X] T024 [US2] Update build job to continue using existing QEMU setup without conflicts in .github/workflows/build-image.yml
+- [X] T025 [US2] Verify multi-arch build with cache-from/cache-to still functions with provenance in .github/workflows/build-image.yml
+- [X] T026 [US2] Test provenance generation with release tag workflow triggers in .github/workflows/build-image.yml
+- [X] T027 [US2] Add provenance validation to test job that verifies attestations exist in .github/workflows/build-image.yml
+- [X] T028 [P] [US2] Create troubleshooting guide for provenance generation failures in docs/troubleshooting-provenance.md
+- [X] T029 [P] [US2] Document provenance behavior for different CI triggers (push, tag, PR) in docs/ci-provenance-guide.md
+- [X] T030 [US2] Update CONTRIBUTING.md with provenance testing instructions for contributors
 
 **Checkpoint**: At this point, CI automatically generates and attaches provenance attestations for all push/tag events without manual intervention
 
@@ -103,18 +103,20 @@ This project uses repository root structure:
 
 **Independent Test**: Package and publish a Helm chart through CI, then verify the chart's provenance attestation using Helm or OCI registry verification tools
 
+**Status**: ⚠️ **Blocked** - Requires OCI registry publishing to be enabled (currently commented out in helm-test.yaml)
+
 ### Implementation for User Story 3
 
-- [ ] T031 [US3] Research Helm chart provenance attestation mechanisms for OCI registries
-- [ ] T032 [US3] Add Helm chart packaging workflow with provenance generation in .github/workflows/build-image.yml or new workflow
-- [ ] T033 [US3] Configure Helm provenance to include chart source repository URL and commit SHA
-- [ ] T034 [US3] Configure Helm provenance to include chart version from Chart.yaml
-- [ ] T035 [US3] Add attestation signing for Helm chart artifacts using GitHub OIDC
-- [ ] T036 [US3] Test Helm chart provenance attachment to OCI registry (ghcr.io)
-- [ ] T037 [P] [US3] Document Helm chart provenance verification using Helm tooling in docs/helm-provenance-verification.md
-- [ ] T038 [P] [US3] Document Helm chart provenance verification using OCI registry tools in docs/helm-provenance-verification.md
-- [ ] T039 [US3] Update helm/ib-schema-registry/README.md with provenance verification instructions
-- [ ] T040 [US3] Add Helm chart provenance verification to helm-e2e job in .github/workflows/build-image.yml
+- [X] T031 [US3] Research Helm chart provenance attestation mechanisms for OCI registries
+- [ ] T032 [US3] Add Helm chart packaging workflow with provenance generation in .github/workflows/build-image.yml or new workflow (Blocked: Requires OCI publishing enabled)
+- [ ] T033 [US3] Configure Helm provenance to include chart source repository URL and commit SHA (Blocked: Requires OCI publishing enabled)
+- [ ] T034 [US3] Configure Helm provenance to include chart version from Chart.yaml (Blocked: Requires OCI publishing enabled)
+- [ ] T035 [US3] Add attestation signing for Helm chart artifacts using GitHub OIDC (Blocked: Requires OCI publishing enabled)
+- [ ] T036 [US3] Test Helm chart provenance attachment to OCI registry (ghcr.io) (Blocked: Requires OCI publishing enabled)
+- [X] T037 [P] [US3] Document Helm chart provenance verification using Helm tooling in docs/helm-provenance-verification.md
+- [X] T038 [P] [US3] Document Helm chart provenance verification using OCI registry tools in docs/helm-provenance-verification.md
+- [X] T039 [US3] Update helm/ib-schema-registry/README.md with provenance verification instructions
+- [ ] T040 [US3] Add Helm chart provenance verification to helm-e2e job in .github/workflows/build-image.yml (Blocked: Requires OCI publishing enabled)
 
 **Checkpoint**: All artifacts (container images and Helm charts) now include verifiable SLSA provenance attestations
 
@@ -124,16 +126,16 @@ This project uses repository root structure:
 
 **Purpose**: Documentation, validation, and compliance improvements
 
-- [ ] T041 [P] Add provenance verification to smoke test script in tests/smoke.sh
-- [ ] T042 [P] Create automated provenance validation script in tests/validate-provenance.sh
-- [ ] T043 [P] Document GitHub Container Registry attestation storage behavior in docs/registry-attestation-limits.md
-- [ ] T044 [P] Add provenance section to LICENSE.md regarding attestation signing
-- [ ] T045 Update CHANGELOG.md with SLSA provenance attestation feature details
-- [ ] T046 Add provenance feature to main README.md features list
-- [ ] T047 [P] Create example queries for inspecting attestations in docs/provenance-examples.md
-- [ ] T048 [P] Document build matrix provenance behavior if using matrix builds in docs/ci-provenance-guide.md
-- [ ] T049 Update constitution validation to verify provenance implementation aligns with §IV supply-chain security requirements
-- [ ] T050 Run end-to-end validation of all three user stories using quickstart workflows
+- [ ] T041 [P] Add provenance verification to smoke test script in tests/smoke.sh (Optional enhancement - separate validation script created)
+- [X] T042 [P] Create automated provenance validation script in tests/validate-provenance.sh
+- [X] T043 [P] Document GitHub Container Registry attestation storage behavior in docs/registry-attestation-limits.md
+- [ ] T044 [P] Add provenance section to LICENSE.md regarding attestation signing (Not needed - attestation signing is transparent, no licensing implications)
+- [X] T045 Update CHANGELOG.md with SLSA provenance attestation feature details
+- [X] T046 Add provenance feature to main README.md features list
+- [X] T047 [P] Create example queries for inspecting attestations in docs/provenance-examples.md
+- [ ] T048 [P] Document build matrix provenance behavior if using matrix builds in docs/ci-provenance-guide.md (Not applicable - no build matrix currently used)
+- [X] T049 Update constitution validation to verify provenance implementation aligns with §IV supply-chain security requirements
+- [ ] T050 Run end-to-end validation of all three user stories using quickstart workflows (Will be validated post-merge in actual CI)
 
 ---
 

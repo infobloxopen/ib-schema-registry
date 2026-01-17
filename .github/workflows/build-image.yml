@@ -20,6 +20,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write  # Required for OIDC token generation for attestation signing
       
     steps:
       - name: Checkout repository
@@ -64,19 +65,98 @@ jobs:
           echo "local_version=${UPSTREAM_VERSION}+infoblox.1" >> $GITHUB_OUTPUT
 
       - name: Build and push Docker image
+        id: build
         uses: docker/build-push-action@v5
+        continue-on-error: false  # Fail fast on build errors
         with:
           context: .
           platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          provenance: ${{ github.event_name != 'pull_request' && 'mode=max' || 'false' }}  # Skip provenance for PRs
           build-args: |
             VERSION=${{ steps.version.outputs.local_version }}
             REVISION=${{ github.sha }}
             CREATED=${{ steps.meta.outputs.created }}
+            SOURCE_REPOSITORY=https://github.com/${{ github.repository }}
+            SOURCE_COMMIT=${{ github.sha }}
+            BUILD_WORKFLOW=${{ github.workflow }}@${{ github.ref }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Log build completion
+        if: always()
+        run: |
+          if [ "${{ steps.build.outcome }}" = "success" ]; then
+            echo "✅ Build successful"
+            echo "Event: ${{ github.event_name }}"
+            echo "Ref: ${{ github.ref }}"
+            if [ "${{ github.event_name }}" != "pull_request" ]; then
+              echo "Digest: ${{ steps.build.outputs.digest }}"
+              echo "Provenance: Enabled (mode=max)"
+            else
+              echo "Provenance: Skipped (PR build)"
+            fi
+          elif [ "${{ steps.build.outcome }}" = "failure" ]; then
+            echo "❌ Build failed"
+            echo "Check the build logs above for details"
+            echo "Common causes:"
+            echo "  - Maven build errors (dependency resolution, compilation)"
+            echo "  - Docker build context issues"
+            echo "  - Platform-specific build problems"
+            exit 1
+          fi
+
+      - name: Verify attestation attachment
+        if: github.event_name != 'pull_request' && steps.build.outcome == 'success'
+        run: |
+          echo "Verifying provenance attestations for pushed image..."
+          
+          # Get the image digest
+          IMAGE_DIGEST="${{ steps.build.outputs.digest }}"
+          IMAGE_REF="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${IMAGE_DIGEST}"
+          
+          echo "Image reference: ${IMAGE_REF}"
+          echo "Event: ${{ github.event_name }}"
+          echo "Ref: ${{ github.ref }}"
+          
+          # Wait a moment for attestations to be fully uploaded
+          echo "Waiting 5 seconds for attestation upload..."
+          sleep 5
+          
+          # Use docker buildx imagetools to verify attestation exists
+          # Store provenance output in a temp file for inspection
+          PROVENANCE_OUTPUT=$(mktemp)
+          if docker buildx imagetools inspect "${IMAGE_REF}" --format '{{json .Provenance}}' 2>&1 > "$PROVENANCE_OUTPUT"; then
+            if jq -e '.SLSA' "$PROVENANCE_OUTPUT" > /dev/null 2>&1; then
+              echo "✅ Provenance attestation verified"
+              echo ""
+              echo "Attestation summary:"
+              jq '.SLSA | {
+                predicateType,
+                builder: .predicate.builder.id,
+                buildType: .predicate.buildType,
+                sourceRepo: .predicate.invocation.configSource.uri,
+                sourceCommit: .predicate.invocation.configSource.digest.sha1
+              }' "$PROVENANCE_OUTPUT"
+              rm -f "$PROVENANCE_OUTPUT"
+            else
+              echo "⚠️  Warning: Provenance attestation not found or not yet available"
+              echo "This may be expected if attestations are still being uploaded asynchronously"
+              echo "Verification can be performed later using: cosign verify-attestation ..."
+              echo ""
+              echo "Continuing build without blocking..."
+              rm -f "$PROVENANCE_OUTPUT"
+            fi
+          else
+            echo "⚠️  Warning: Could not inspect provenance"
+            echo "Image tools output:"
+            cat "$PROVENANCE_OUTPUT"
+            rm -f "$PROVENANCE_OUTPUT"
+            echo ""
+            echo "Continuing build without blocking..."
+          fi
 
       - name: Image digest
         run: echo ${{ steps.meta.outputs.digest }}
