@@ -438,4 +438,4 @@ See [LICENSE.md](LICENSE.md) for full details.
 
 ---
 
-**Built with ❤️ by Infoblox | [Constitution](./specify/memory/constitution.md) | [Specification](specs/001-schema-registry-image/spec.md)**
+**Built with ❤️ by Infoblox | [Constitution](./.specify/memory/constitution.md) | [Specification](specs/001-schema-registry-image/spec.md)**
