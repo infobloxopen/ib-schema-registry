@@ -67,20 +67,25 @@ echo "Step 1/5: Setting up k3d cluster"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 bash "$SCRIPT_DIR/setup-k3d-cluster.sh"
 
-# Step 2: Build and load Docker image
+# Step 2: Load Docker image into k3d
 echo ""
-echo "Step 2/6: Building and loading Docker image"
+echo "Step 2/5: Loading Docker image into k3d"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 IMAGE_NAME="ib-schema-registry"
 IMAGE_TAG="test"
 
-echo "→ Building Docker image: ${IMAGE_NAME}:${IMAGE_TAG}"
-cd "$REPO_ROOT"
-docker build -t "${IMAGE_NAME}:${IMAGE_TAG}" . || {
-  echo "❌ Failed to build Docker image"
-  exit 1
-}
+# Check if image exists locally (CI will pull it, local dev will build it)
+if ! docker image inspect "${IMAGE_NAME}:${IMAGE_TAG}" > /dev/null 2>&1; then
+  echo "→ Image not found locally, building: ${IMAGE_NAME}:${IMAGE_TAG}"
+  REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+  cd "$REPO_ROOT"
+  docker build -t "${IMAGE_NAME}:${IMAGE_TAG}" . || {
+    echo "❌ Failed to build Docker image"
+    exit 1
+  }
+else
+  echo "→ Using existing image: ${IMAGE_NAME}:${IMAGE_TAG}"
+fi
 
 echo "→ Loading image into k3d cluster..."
 k3d image import "${IMAGE_NAME}:${IMAGE_TAG}" -c schema-registry-test || {
@@ -88,7 +93,7 @@ k3d image import "${IMAGE_NAME}:${IMAGE_TAG}" -c schema-registry-test || {
   exit 1
 }
 
-echo "✅ Image built and loaded into k3d cluster"
+echo "✅ Image loaded into k3d cluster"
 
 # Step 3: Deploy Redpanda
 echo ""

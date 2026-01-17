@@ -1,21 +1,10 @@
 name: Helm Chart Tests
 
 on:
-  push:
-    branches:
-      - main
-      - '**-helm-chart'
-    paths:
-      - 'helm/**'
-      - 'tests/e2e/**'
-      - '.github/workflows/helm-test.yaml'
-  pull_request:
-    branches:
-      - main
-    paths:
-      - 'helm/**'
-      - 'tests/e2e/**'
-      - '.github/workflows/helm-test.yaml'
+  workflow_run:
+    workflows: ["Build Multi-Arch Schema Registry Image"]
+    types:
+      - completed
   workflow_dispatch:
 
 jobs:
@@ -37,6 +26,7 @@ jobs:
   e2e-test:
     name: E2E Tests
     runs-on: ${{ matrix.os }}
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -53,6 +43,27 @@ jobs:
       - name: Install k3d
         run: |
           curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull Docker image from GHCR
+        run: |
+          # Use the commit SHA from the workflow that triggered this run
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            IMAGE_TAG="ghcr.io/${{ github.repository }}:main"
+          else
+            IMAGE_TAG="ghcr.io/${{ github.repository }}:sha-${{ github.event.workflow_run.head_sha }}"
+          fi
+          echo "Pulling image: $IMAGE_TAG"
+          docker pull "$IMAGE_TAG"
+          
+          # Tag as 'test' for E2E tests
+          docker tag "$IMAGE_TAG" "ib-schema-registry:test"
 
       - name: Run E2E tests
         run: bash tests/e2e/test-helm-chart.sh
