@@ -43,13 +43,36 @@ cleanup() {
 trap cleanup EXIT
 
 # Step 1: Setup k3d cluster
-echo "Step 1/5: Setting up k3d cluster"
+echo "Step 1/6: Setting up k3d cluster"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 bash "$SCRIPT_DIR/setup-k3d-cluster.sh"
 
-# Step 2: Deploy Redpanda
+# Step 2: Build and load Docker image
 echo ""
-echo "Step 2/5: Deploying Redpanda (Kafka backend)"
+echo "Step 2/6: Building and loading Docker image"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+IMAGE_NAME="ib-schema-registry"
+IMAGE_TAG="test"
+
+echo "→ Building Docker image: ${IMAGE_NAME}:${IMAGE_TAG}"
+cd "$REPO_ROOT"
+docker build -t "${IMAGE_NAME}:${IMAGE_TAG}" . || {
+  echo "❌ Failed to build Docker image"
+  exit 1
+}
+
+echo "→ Loading image into k3d cluster..."
+k3d image import "${IMAGE_NAME}:${IMAGE_TAG}" -c schema-registry-test || {
+  echo "❌ Failed to load image into k3d"
+  exit 1
+}
+
+echo "✅ Image built and loaded into k3d cluster"
+
+# Step 3: Deploy Redpanda
+echo ""
+echo "Step 3/6: Deploying Redpanda (Kafka backend)"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 if ! bash "$SCRIPT_DIR/deploy-redpanda.sh"; then
   echo "❌ Redpanda deployment failed!"
@@ -60,9 +83,9 @@ if ! bash "$SCRIPT_DIR/deploy-redpanda.sh"; then
   exit 1
 fi
 
-# Step 3: Install Helm chart
+# Step 4: Install Helm chart
 echo ""
-echo "Step 3/5: Installing Schema Registry Helm chart"
+echo "Step 4/6: Installing Schema Registry Helm chart"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "→ Installing chart from: $CHART_DIR"
 
@@ -70,6 +93,9 @@ helm install "$RELEASE_NAME" "$CHART_DIR" \
   --namespace "$NAMESPACE" \
   --set config.kafkaBootstrapServers="redpanda.$NAMESPACE.svc.cluster.local:9092" \
   --set replicaCount=1 \
+  --set image.repository="${IMAGE_NAME}" \
+  --set image.tag="${IMAGE_TAG}" \
+  --set image.pullPolicy=Never \
   --wait \
   --timeout 5m
 
@@ -77,15 +103,15 @@ echo ""
 echo "✅ Helm chart installed successfully!"
 kubectl get pods,svc -n "$NAMESPACE" -l app.kubernetes.io/name=ib-schema-registry
 
-# Step 4: Run Helm tests
+# Step 5: Run Helm tests
 echo ""
-echo "Step 4/5: Running Helm tests"
+echo "Step 5/6: Running Helm tests"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 helm test "$RELEASE_NAME" -n "$NAMESPACE" --logs
 
-# Step 5: Validate Schema Registry API
+# Step 6: Validate Schema Registry API
 echo ""
-echo "Step 5/5: Validating Schema Registry API"
+echo "Step 6/6: Validating Schema Registry API"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 export RELEASE_NAME
 export NAMESPACE
