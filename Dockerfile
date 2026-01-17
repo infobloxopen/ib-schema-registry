@@ -21,12 +21,24 @@ WORKDIR /workspace
 # Copy upstream Schema Registry source (from git submodule)
 COPY upstream/schema-registry /workspace/upstream/schema-registry
 
+# Apply Infoblox patches for security updates
+COPY patches /workspace/patches
+RUN apt-get update && apt-get install -y patch && rm -rf /var/lib/apt/lists/* && \
+    cd /workspace/upstream/schema-registry && \
+    for patch in /workspace/patches/*.patch; do \
+        echo "Applying patch: $(basename $patch)" && \
+        patch -p1 < "$patch" || exit 1; \
+    done
+
 # Build Schema Registry standalone JAR with Maven
 # - Use BuildKit cache mount for Maven dependencies to speed up rebuilds
 # - Skip tests during build (tests run in upstream CI)
 # - Use standalone profile to create single executable JAR
 # - Disable memory-intensive plugins for constrained environments
+# - Security patches applied via patches/ directory
 WORKDIR /workspace/upstream/schema-registry
+
+# Build the application (dependency versions patched in pom.xml)
 RUN --mount=type=cache,target=/root/.m2 \
     mvn -DskipTests package -P standalone \
     -Dspotbugs.skip=true \
