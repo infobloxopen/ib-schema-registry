@@ -55,6 +55,40 @@ curl http://localhost:8081/subjects
 # Expected: []
 ```
 
+## Kubernetes Deployment (Helm Chart)
+
+### Quick Deploy to Kubernetes
+
+```bash
+# Install from OCI registry
+helm install schema-registry oci://ghcr.io/infobloxopen/ib-schema-registry \
+  --set config.kafkaBootstrapServers="kafka:9092"
+
+# Or install from local chart
+helm install schema-registry ./helm/ib-schema-registry \
+  --set config.kafkaBootstrapServers="kafka:9092"
+```
+
+### Production HA Deployment
+
+```bash
+# Deploy with 3 replicas, PodDisruptionBudget, and topology spread
+helm install schema-registry oci://ghcr.io/infobloxopen/ib-schema-registry \
+  --set config.kafkaBootstrapServers="kafka-0:9092,kafka-1:9092,kafka-2:9092" \
+  --set replicaCount=3 \
+  --set resources.requests.memory=1Gi \
+  --set resources.limits.memory=2Gi
+```
+
+### Helm Chart Features
+
+- ✅ **High Availability**: Multi-replica with PodDisruptionBudget and zone distribution
+- ✅ **Rolling Updates**: Automatic pod restarts on configuration changes
+- ✅ **Security**: Non-root, read-only filesystem, minimal privileges
+- ✅ **E2E Tested**: Validated with k3d and Redpanda in CI/CD
+
+See [helm/ib-schema-registry/README.md](helm/ib-schema-registry/README.md) for full Helm chart documentation.
+
 ### Docker Compose Example
 
 ```yaml

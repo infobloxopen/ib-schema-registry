@@ -1,0 +1,50 @@
+# Minimal values.yaml - Single Replica Development
+
+# This configuration provides a minimal Schema Registry deployment suitable for
+# local development or testing environments.
+
+# Number of replicas (1 for development, 3+ for production)
+replicaCount: 1
+
+# Container image configuration
+image:
+  repository: ghcr.io/infobloxopen/ib-schema-registry
+  pullPolicy: IfNotPresent
+  # tag: ""  # Defaults to Chart.appVersion if not set
+
+# Kafka connection (REQUIRED)
+config:
+  # Replace with your Kafka bootstrap servers
+  kafkaBootstrapServers: "kafka:9092"
+
+# Resource limits - development settings
+resources:
+  requests:
+    memory: 512Mi
+    cpu: 250m
+  limits:
+    memory: 1Gi
+    cpu: 1000m
+
+# JVM heap sizing (70% of container memory limit)
+jvm:
+  maxRAMPercentage: 70.0
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 8081
+
+# Security context
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+
+# High availability features disabled for single replica
+podDisruptionBudget:
+  enabled: false
+
+topologySpreadConstraints:
+  enabled: false

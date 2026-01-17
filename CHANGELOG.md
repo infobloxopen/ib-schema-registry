@@ -42,6 +42,58 @@ None identified. All functionality from 7.6.1 carries forward to 8.1.1.
 
 ## [Unreleased]
 
+### Added
+
+#### Helm Chart for Kubernetes Deployment (Feature 003) - 2026-01-16
+
+**New Feature**: Production-ready Helm chart for deploying Schema Registry to Kubernetes with high availability features.
+
+**Chart Features**:
+- ✅ **Multi-replica deployments** with PodDisruptionBudget and topology spread constraints
+- ✅ **Automatic rolling updates** triggered by configuration changes (ConfigMap checksum)
+- ✅ **Security hardening**: Non-root user (UID 65532), read-only filesystem, no privilege escalation
+- ✅ **Comprehensive E2E tests**: Validated with k3d + Redpanda in GitHub Actions
+- ✅ **OCI artifact distribution**: Chart published to GHCR alongside container images
+- ✅ **Full documentation**: Chart README, values.yaml inline docs, troubleshooting guide
+
+**Installation**:
+```bash
+# Install from OCI registry
+helm install schema-registry oci://ghcr.io/infobloxopen/ib-schema-registry \
+  --set config.kafkaBootstrapServers="kafka:9092"
+
+# Or install from local chart
+helm install schema-registry ./helm/ib-schema-registry \
+  --set config.kafkaBootstrapServers="kafka:9092"
+
+# Production HA deployment
+helm install schema-registry oci://ghcr.io/infobloxopen/ib-schema-registry \
+  --set config.kafkaBootstrapServers="kafka-0:9092,kafka-1:9092,kafka-2:9092" \
+  --set replicaCount=3
+```
+
+**Configuration**:
+- 40+ configurable parameters via values.yaml
+- Support for custom schema-registry.properties via `config.extraProperties`
+- JVM tuning with container-aware heap sizing (70% of memory limit)
+- Service annotations, affinity, tolerations, node selectors
+- Liveness/readiness probes with configurable timeouts
+
+**Testing**:
+- E2E test suite: `make helm-test-e2e`
+- Helm built-in tests: `helm test schema-registry`
+- GitHub Actions CI with chart lint and E2E validation
+
+**Documentation**:
+- Chart README: [helm/ib-schema-registry/README.md](helm/ib-schema-registry/README.md)
+- E2E test guide: [tests/e2e/README.md](tests/e2e/README.md)
+- Specification: [specs/003-helm-chart/spec.md](specs/003-helm-chart/spec.md)
+
+**Related**:
+- Closes requirement for Kubernetes-native deployment pattern
+- Complements container image from Feature 001
+- Enables GitOps workflows with ArgoCD/Flux
+
 ### Changed
 
 #### Security Enhancement: Chainguard JRE as Default Runtime (2026-01-16)
