@@ -1,0 +1,21 @@
+{{- include "ib-schema-registry.validate" . -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ib-schema-registry.fullname" . }}
+  labels:
+    {{- include "ib-schema-registry.labels" . | nindent 4 }}
+data:
+  schema-registry.properties: |
+    # Kafka connection
+    kafkastore.bootstrap.servers={{ .Values.config.kafkaBootstrapServers }}
+    
+    # Schema Registry listeners
+    listeners=http://0.0.0.0:8081
+    
+    # Host name
+    host.name={{ include "ib-schema-registry.fullname" . }}
+    
+    {{- range $key, $value := .Values.config.extraProperties }}
+    {{ $key }}={{ $value }}
+    {{- end }}

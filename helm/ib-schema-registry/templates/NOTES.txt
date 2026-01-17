@@ -1,0 +1,97 @@
+Thank you for installing {{ .Chart.Name }}!
+
+Your release is named {{ .Release.Name }}.
+
+To learn more about this release, try:
+
+  $ helm status {{ .Release.Name }} --namespace {{ .Release.Namespace }}
+  $ helm get all {{ .Release.Name }} --namespace {{ .Release.Namespace }}
+
+Schema Registry has been deployed with the following configuration:
+
+* Release name: {{ .Release.Name }}
+* Namespace: {{ .Release.Namespace }}
+* Replicas: {{ .Values.replicaCount }}
+* Kafka Bootstrap Servers: {{ .Values.config.kafkaBootstrapServers }}
+
+To access the Schema Registry:
+
+{{- if eq .Values.service.type "ClusterIP" }}
+
+1. Forward the Schema Registry port to your local machine:
+
+   $ kubectl port-forward --namespace {{ .Release.Namespace }} svc/{{ include "ib-schema-registry.fullname" . }} 8081:8081
+
+2. Access the Schema Registry API at http://localhost:8081
+
+{{- else if eq .Values.service.type "NodePort" }}
+
+1. Get the application URL by running:
+
+   export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "ib-schema-registry.fullname" . }})
+   export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
+   echo "Schema Registry URL: http://$NODE_IP:$NODE_PORT"
+
+{{- else if eq .Values.service.type "LoadBalancer" }}
+
+1. Get the application URL by running:
+
+   export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include "ib-schema-registry.fullname" . }} --template "{{"{{ range (index .status.loadBalancer.ingress 0) }}{{.}}{{ end }}"}}")
+   echo "Schema Registry URL: http://$SERVICE_IP:{{ .Values.service.port }}"
+
+NOTE: It may take a few minutes for the LoadBalancer IP to be available.
+{{- end }}
+
+To test the Schema Registry:
+
+1. Check the root endpoint:
+   $ curl http://localhost:8081/
+
+2. List available subjects:
+   $ curl http://localhost:8081/subjects
+
+3. Register a test schema:
+   $ curl -X POST http://localhost:8081/subjects/test-value/versions \
+     -H "Content-Type: application/vnd.schemaregistry.v1+json" \
+     -d '{"schema": "{\"type\":\"record\",\"name\":\"Test\",\"fields\":[{\"name\":\"id\",\"type\":\"int\"}]}"}'
+
+4. Run the Helm test:
+   $ helm test {{ .Release.Name }} --namespace {{ .Release.Namespace }}
+
+{{- if gt (.Values.replicaCount | int) 1 }}
+
+High Availability Configuration:
+* Running {{ .Values.replicaCount }} replicas for high availability
+{{- if .Values.podDisruptionBudget.enabled }}
+* Pod Disruption Budget configured (minAvailable: {{ ceil (div (.Values.replicaCount | float64) 2.0) | int }})
+{{- end }}
+{{- if .Values.topologySpreadConstraints.enabled }}
+* Topology spread constraints enabled for zone distribution
+{{- end }}
+{{- else }}
+
+WARNING: Running with only 1 replica. For production use, consider:
+* Setting replicaCount >= 3 for high availability
+* Enabling podDisruptionBudget for safe rolling updates
+{{- end }}
+
+For monitoring and troubleshooting:
+
+* View logs:
+  $ kubectl logs --namespace {{ .Release.Namespace }} -l app.kubernetes.io/name={{ include "ib-schema-registry.name" . }}
+
+* Check pod status:
+  $ kubectl get pods --namespace {{ .Release.Namespace }} -l app.kubernetes.io/name={{ include "ib-schema-registry.name" . }}
+
+* Describe the deployment:
+  $ kubectl describe deployment --namespace {{ .Release.Namespace }} {{ include "ib-schema-registry.fullname" . }}
+
+To update the configuration:
+
+1. Edit your values and upgrade:
+   $ helm upgrade {{ .Release.Name }} ib-schema-registry/ib-schema-registry --namespace {{ .Release.Namespace }} -f values.yaml
+
+For more information, visit:
+* Chart documentation: https://github.com/infobloxopen/ib-schema-registry/tree/main/helm/ib-schema-registry
+* Confluent Schema Registry docs: https://docs.confluent.io/platform/current/schema-registry/
+

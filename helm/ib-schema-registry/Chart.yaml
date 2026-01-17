@@ -1,0 +1,33 @@
+apiVersion: v2
+name: ib-schema-registry
+description: Confluent Schema Registry for managing Avro, Protobuf, and JSON schemas
+type: application
+version: 0.1.0
+appVersion: "7.6.1"
+keywords:
+  - schema-registry
+  - kafka
+  - avro
+  - protobuf
+  - json-schema
+  - confluent
+home: https://github.com/infobloxopen/ib-schema-registry
+sources:
+  - https://github.com/infobloxopen/ib-schema-registry
+  - https://github.com/confluentinc/schema-registry
+maintainers:
+  - name: Infoblox Platform Engineering
+    email: platform-engineering@infoblox.com
+icon: https://raw.githubusercontent.com/confluentinc/schema-registry/master/docs/images/schema-registry-logo.png
+annotations:
+  artifacthub.io/containsSecurityUpdates: "false"
+  artifacthub.io/prerelease: "false"
+  artifacthub.io/images: |
+    - name: ib-schema-registry
+      image: ghcr.io/infobloxopen/ib-schema-registry:7.6.1
+  artifacthub.io/changes: |
+    - kind: added
+      description: Initial Helm chart release for IB Schema Registry
+      links:
+        - name: GitHub PR
+          url: https://github.com/infobloxopen/ib-schema-registry/pull/1

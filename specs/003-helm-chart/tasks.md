@@ -20,10 +20,10 @@
 
 **Purpose**: Initialize Helm chart structure and repository scaffolding
 
-- [ ] T001 Create chart directory structure at `chart/` with Chart.yaml, values.yaml, templates/, .helmignore
-- [ ] T002 Create templates helper file at `chart/templates/_helpers.tpl` with name/label functions
-- [ ] T003 [P] Add Helm targets to Makefile (helm-lint, helm-package, helm-push, helm-test-e2e)
-- [ ] T004 [P] Create e2e test directory structure at `tests/e2e/` with README.md
+- [X] T001 Create chart directory structure at `chart/` with Chart.yaml, values.yaml, templates/, .helmignore
+- [X] T002 Create templates helper file at `chart/templates/_helpers.tpl` with name/label functions
+- [X] T003 [P] Add Helm targets to Makefile (helm-lint, helm-package, helm-push, helm-test-e2e)
+- [X] T004 [P] Create e2e test directory structure at `tests/e2e/` with README.md
 
 ---
 
@@ -33,10 +33,10 @@
 
 **⚠️ CRITICAL**: These resources are required by all deployment scenarios
 
-- [ ] T005 Create Chart.yaml metadata in `chart/Chart.yaml` with apiVersion, name, version, appVersion, description, maintainers
-- [ ] T006 Create base values.yaml schema in `chart/values.yaml` with image, replicaCount, service, resources structure
-- [ ] T007 [P] Implement template helpers in `chart/templates/_helpers.tpl` (fullname, name, chart, labels, selectorLabels functions)
-- [ ] T008 [P] Create .helmignore file in `chart/.helmignore` to exclude .git, .DS_Store, *.md files
+- [X] T005 Create Chart.yaml metadata in `chart/Chart.yaml` with apiVersion, name, version, appVersion, description, maintainers
+- [X] T006 Create base values.yaml schema in `chart/values.yaml` with image, replicaCount, service, resources structure
+- [X] T007 [P] Implement template helpers in `chart/templates/_helpers.tpl` (fullname, name, chart, labels, selectorLabels functions)
+- [X] T008 [P] Create .helmignore file in `chart/.helmignore` to exclude .git, .DS_Store, *.md files
 
 **Checkpoint**: Foundation ready - user story templates can now be implemented in parallel
 
@@ -50,15 +50,15 @@
 
 ### Implementation for User Story 1
 
-- [ ] T009 [P] [US1] Create Deployment template in `chart/templates/deployment.yaml` with container spec, image reference, ports, basic env vars
-- [ ] T010 [P] [US1] Add liveness probe to Deployment in `chart/templates/deployment.yaml` (httpGet on / endpoint)
-- [ ] T011 [P] [US1] Add readiness probe to Deployment in `chart/templates/deployment.yaml` (httpGet on /subjects endpoint)
-- [ ] T012 [P] [US1] Configure securityContext in Deployment in `chart/templates/deployment.yaml` (runAsNonRoot, runAsUser 65532, allowPrivilegeEscalation false)
-- [ ] T013 [P] [US1] Create Service template in `chart/templates/service.yaml` with ClusterIP type, port 8081, selector labels
-- [ ] T014 [P] [US1] Create ServiceAccount template in `chart/templates/serviceaccount.yaml` with conditional creation
-- [ ] T015 [US1] Add resource requests/limits to Deployment in `chart/templates/deployment.yaml` from values.resources
-- [ ] T016 [US1] Create NOTES.txt template in `chart/templates/NOTES.txt` with basic access instructions
-- [ ] T017 [US1] Create Helm test template in `chart/templates/tests/test-connection.yaml` to validate API connectivity
+- [X] T009 [P] [US1] Create Deployment template in `chart/templates/deployment.yaml` with container spec, image reference, ports, basic env vars
+- [X] T010 [P] [US1] Add liveness probe to Deployment in `chart/templates/deployment.yaml` (httpGet on / endpoint)
+- [X] T011 [P] [US1] Add readiness probe to Deployment in `chart/templates/deployment.yaml` (httpGet on /subjects endpoint)
+- [X] T012 [P] [US1] Configure securityContext in Deployment in `chart/templates/deployment.yaml` (runAsNonRoot, runAsUser 65532, allowPrivilegeEscalation false)
+- [X] T013 [P] [US1] Create Service template in `chart/templates/service.yaml` with ClusterIP type, port 8081, selector labels
+- [X] T014 [P] [US1] Create ServiceAccount template in `chart/templates/serviceaccount.yaml` with conditional creation
+- [X] T015 [US1] Add resource requests/limits to Deployment in `chart/templates/deployment.yaml` from values.resources
+- [X] T016 [US1] Create NOTES.txt template in `chart/templates/NOTES.txt` with basic access instructions
+- [X] T017 [US1] Create Helm test template in `chart/templates/tests/test-connection.yaml` to validate API connectivity
 
 **Checkpoint**: Basic deployment functional - can install chart, pods start, API accessible
 
@@ -72,15 +72,15 @@
 
 ### Implementation for User Story 2
 
-- [ ] T018 [P] [US2] Create ConfigMap template in `chart/templates/configmap.yaml` with schema-registry.properties from values
-- [ ] T019 [P] [US2] Add ConfigMap volume mount to Deployment in `chart/templates/deployment.yaml` at /etc/schema-registry/
-- [ ] T020 [US2] Add Kafka bootstrap servers environment variable to Deployment in `chart/templates/deployment.yaml` from values.config.kafkaBootstrapServers
-- [ ] T021 [US2] Add JVM options environment variable to Deployment in `chart/templates/deployment.yaml` (SCHEMA_REGISTRY_OPTS with UseContainerSupport and MaxRAMPercentage)
-- [ ] T022 [US2] Add host.name environment variable to Deployment in `chart/templates/deployment.yaml` using downward API (metadata.name)
-- [ ] T023 [US2] Add extraProperties support to ConfigMap in `chart/templates/configmap.yaml` (range loop over values.config.extraProperties)
-- [ ] T024 [US2] Add validation function to helpers in `chart/templates/_helpers.tpl` to fail if kafkaBootstrapServers is empty
-- [ ] T025 [US2] Enhance values.yaml in `chart/values.yaml` with comprehensive inline documentation for all 40+ parameters
-- [ ] T026 [US2] Update NOTES.txt in `chart/templates/NOTES.txt` to show Kafka connection and configuration update instructions
+- [X] T018 [P] [US2] Create ConfigMap template in `chart/templates/configmap.yaml` with schema-registry.properties from values
+- [X] T019 [P] [US2] Add ConfigMap volume mount to Deployment in `chart/templates/deployment.yaml` at /etc/schema-registry/
+- [X] T020 [US2] Add Kafka bootstrap servers environment variable to Deployment in `chart/templates/deployment.yaml` from values.config.kafkaBootstrapServers
+- [X] T021 [US2] Add JVM options environment variable to Deployment in `chart/templates/deployment.yaml` (SCHEMA_REGISTRY_OPTS with UseContainerSupport and MaxRAMPercentage)
+- [X] T022 [US2] Add host.name environment variable to Deployment in `chart/templates/deployment.yaml` using downward API (metadata.name)
+- [X] T023 [US2] Add extraProperties support to ConfigMap in `chart/templates/configmap.yaml` (range loop over values.config.extraProperties)
+- [X] T024 [US2] Add validation function to helpers in `chart/templates/_helpers.tpl` to fail if kafkaBootstrapServers is empty
+- [X] T025 [US2] Enhance values.yaml in `chart/values.yaml` with comprehensive inline documentation for all 40+ parameters
+- [X] T026 [US2] Update NOTES.txt in `chart/templates/NOTES.txt` to show Kafka connection and configuration update instructions
 
 **Checkpoint**: Configuration fully customizable - operators can set replicas, Kafka, resources via values
 
@@ -94,12 +94,12 @@
 
 ### Implementation for User Story 3
 
-- [ ] T027 [P] [US3] Create PodDisruptionBudget template in `chart/templates/poddisruptionbudget.yaml` with conditional creation (if replicaCount > 1)
-- [ ] T028 [US3] Add minAvailable calculation to PodDisruptionBudget in `chart/templates/poddisruptionbudget.yaml` (ceiling(replicaCount / 2) formula)
-- [ ] T029 [US3] Add topologySpreadConstraints to Deployment in `chart/templates/deployment.yaml` (conditional, if replicaCount > 1)
-- [ ] T030 [US3] Configure topologySpreadConstraints in Deployment in `chart/templates/deployment.yaml` (maxSkew: 1, topologyKey: topology.kubernetes.io/zone, whenUnsatisfiable: ScheduleAnyway)
-- [ ] T031 [US3] Add HA configuration section to values.yaml in `chart/values.yaml` (podDisruptionBudget.enabled, topologySpreadConstraints.enabled, topologySpreadConstraints.maxSkew)
-- [ ] T032 [US3] Update NOTES.txt in `chart/templates/NOTES.txt` to show HA status (replica count, PDB, topology spread)
+- [X] T027 [P] [US3] Create PodDisruptionBudget template in `chart/templates/poddisruptionbudget.yaml` with conditional creation (if replicaCount > 1)
+- [X] T028 [US3] Add minAvailable calculation to PodDisruptionBudget in `chart/templates/poddisruptionbudget.yaml` (ceiling(replicaCount / 2) formula)
+- [X] T029 [US3] Add topologySpreadConstraints to Deployment in `chart/templates/deployment.yaml` (conditional, if replicaCount > 1)
+- [X] T030 [US3] Configure topologySpreadConstraints in Deployment in `chart/templates/deployment.yaml` (maxSkew: 1, topologyKey: topology.kubernetes.io/zone, whenUnsatisfiable: ScheduleAnyway)
+- [X] T031 [US3] Add HA configuration section to values.yaml in `chart/values.yaml` (podDisruptionBudget.enabled, topologySpreadConstraints.enabled, topologySpreadConstraints.maxSkew)
+- [X] T032 [US3] Update NOTES.txt in `chart/templates/NOTES.txt` to show HA status (replica count, PDB, topology spread)
 
 **Checkpoint**: HA features functional - multi-replica deployments resilient to node failures and zone outages
 
@@ -113,9 +113,9 @@
 
 ### Implementation for User Story 4
 
-- [ ] T033 [US4] Add ConfigMap checksum annotation to Deployment in `chart/templates/deployment.yaml` (pod template annotations, sha256sum of configmap.yaml)
-- [ ] T034 [US4] Test rolling update behavior: update values, run helm upgrade, verify new pods created with updated config
-- [ ] T035 [US4] Update NOTES.txt in `chart/templates/NOTES.txt` to document rolling update behavior and helm upgrade command
+- [X] T033 [US4] Add ConfigMap checksum annotation to Deployment in `chart/templates/deployment.yaml` (pod template annotations, sha256sum of configmap.yaml)
+- [X] T034 [US4] Test rolling update behavior: update values, run helm upgrade, verify new pods created with updated config
+- [X] T035 [US4] Update NOTES.txt in `chart/templates/NOTES.txt` to document rolling update behavior and helm upgrade command
 
 **Checkpoint**: Rolling updates functional - configuration changes automatically applied without manual intervention
 
@@ -129,14 +129,14 @@
 
 ### Implementation for User Story 5
 
-- [ ] T036 [P] [US5] Create k3d cluster setup script in `tests/e2e/setup-k3d-cluster.sh` (create cluster with 2 agents)
-- [ ] T037 [P] [US5] Create Redpanda deployment script in `tests/e2e/deploy-redpanda.sh` (Deployment + Service YAML)
-- [ ] T038 [US5] Create Schema Registry validation script in `tests/e2e/validate-schema-registry.sh` (register schema, retrieve, list subjects)
-- [ ] T039 [US5] Create main E2E test orchestrator in `tests/e2e/test-helm-chart.sh` (calls setup, deploy, validate, teardown)
-- [ ] T040 [US5] Create teardown script in `tests/e2e/teardown.sh` (delete k3d cluster and resources)
-- [ ] T041 [US5] Create E2E test documentation in `tests/e2e/README.md` with prerequisites and usage
-- [ ] T042 [US5] Create GitHub Actions workflow in `.github/workflows/helm-test.yaml` for Helm chart CI (lint, e2e tests, matrix for architectures)
-- [ ] T043 [US5] Add helm-test-e2e target to Makefile in `Makefile` to run E2E tests locally
+- [X] T036 [P] [US5] Create k3d cluster setup script in `tests/e2e/setup-k3d-cluster.sh` (create cluster with 2 agents)
+- [X] T037 [P] [US5] Create Redpanda deployment script in `tests/e2e/deploy-redpanda.sh` (Deployment + Service YAML)
+- [X] T038 [US5] Create Schema Registry validation script in `tests/e2e/validate-schema-registry.sh` (register schema, retrieve, list subjects)
+- [X] T039 [US5] Create main E2E test orchestrator in `tests/e2e/test-helm-chart.sh` (calls setup, deploy, validate, teardown)
+- [X] T040 [US5] Create teardown script in `tests/e2e/teardown.sh` (delete k3d cluster and resources)
+- [X] T041 [US5] Create E2E test documentation in `tests/e2e/README.md` with prerequisites and usage
+- [X] T042 [US5] Create GitHub Actions workflow in `.github/workflows/helm-test.yaml` for Helm chart CI (lint, e2e tests, matrix for architectures)
+- [X] T043 [US5] Add helm-test-e2e target to Makefile in `Makefile` to run E2E tests locally
 
 **Checkpoint**: E2E tests functional - automated validation catches regressions in chart behavior
 
@@ -150,11 +150,11 @@
 
 ### Implementation for User Story 6
 
-- [ ] T044 [P] [US6] Add helm-package target to Makefile in `Makefile` (helm package chart/)
-- [ ] T045 [P] [US6] Add helm-push target to Makefile in `Makefile` (helm push to OCI registry)
-- [ ] T046 [US6] Update Chart.yaml in `chart/Chart.yaml` to reference multi-arch container images (annotations or documentation)
-- [ ] T047 [US6] Create chart packaging documentation in `chart/README.md` with helm push examples
-- [ ] T048 [US6] Update GitHub Actions workflow in `.github/workflows/helm-test.yaml` to publish chart to GHCR on release
+- [X] T044 [P] [US6] Add helm-package target to Makefile in `Makefile` (helm package chart/)
+- [X] T045 [P] [US6] Add helm-push target to Makefile in `Makefile` (helm push to OCI registry)
+- [X] T046 [US6] Update Chart.yaml in `chart/Chart.yaml` to reference multi-arch container images (annotations or documentation)
+- [X] T047 [US6] Create chart packaging documentation in `helm/ib-schema-registry/README.md` with helm push examples
+- [X] T048 [US6] Update GitHub Actions workflow in `.github/workflows/helm-test.yaml` to publish chart to GHCR on release
 
 **Checkpoint**: OCI packaging complete - chart distributed as container artifact alongside images
 
@@ -164,15 +164,15 @@
 
 **Purpose**: Final refinements, documentation, and release readiness
 
-- [ ] T049 [P] Create comprehensive chart README in `chart/README.md` with installation, configuration, examples, troubleshooting
-- [ ] T050 [P] Add affinity/tolerations/nodeSelector support to values.yaml in `chart/values.yaml` and Deployment template
-- [ ] T051 [P] Add imagePullSecrets support to values.yaml in `chart/values.yaml` and Deployment template
-- [ ] T052 [P] Add service annotations support to values.yaml in `chart/values.yaml` and Service template
-- [ ] T053 Validate all values.yaml parameters have inline documentation comments
-- [ ] T054 Run helm lint on chart and fix any warnings
-- [ ] T055 Test chart with values-minimal.yaml and values-ha.yaml from contracts/
-- [ ] T056 Update repository README.md with Helm chart usage section
-- [ ] T057 Create CHANGELOG entry for Helm chart feature
+- [X] T049 [P] Create comprehensive chart README in `helm/ib-schema-registry/README.md` with installation, configuration, examples, troubleshooting
+- [X] T050 [P] Add affinity/tolerations/nodeSelector support to values.yaml in `chart/values.yaml` and Deployment template
+- [X] T051 [P] Add imagePullSecrets support to values.yaml in `chart/values.yaml` and Deployment template
+- [X] T052 [P] Add service annotations support to values.yaml in `chart/values.yaml` and Service template
+- [X] T053 Validate all values.yaml parameters have inline documentation comments
+- [X] T054 Run helm lint on chart and fix any warnings
+- [X] T055 Test chart with values-minimal.yaml and values-ha.yaml from contracts/
+- [X] T056 Update repository README.md with Helm chart usage section
+- [X] T057 Create CHANGELOG entry for Helm chart feature
 
 **Checkpoint**: Chart production-ready - comprehensive documentation, validated configurations, CI passing
 

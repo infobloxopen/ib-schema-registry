@@ -1,0 +1,14 @@
+{{- if and .Values.podDisruptionBudget.enabled (gt (.Values.replicaCount | int) 1) }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "ib-schema-registry.fullname" . }}
+  labels:
+    {{- include "ib-schema-registry.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ div (add (.Values.replicaCount | int) 1) 2 }}
+  selector:
+    matchLabels:
+      {{- include "ib-schema-registry.selectorLabels" . | nindent 6 }}
+{{- end }}
+

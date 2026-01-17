@@ -67,3 +67,8 @@ test-results/
 *~
 *.bak
 *.backup
+
+# Helm chart artifacts
+*.tgz
+chart/*.tgz
+.helmignore.tmp

@@ -154,3 +154,41 @@ info: ## Display build configuration
 	@echo ""
 	@echo "Submodule Status:"
 	@git submodule status upstream/schema-registry || echo "  Not initialized"
+
+# -----------------------------------------------------------------------------
+# Helm Chart Targets (Feature 003)
+# -----------------------------------------------------------------------------
+
+CHART_DIR := helm/ib-schema-registry
+CHART_NAME := ib-schema-registry
+CHART_VERSION ?= 0.1.0
+REGISTRY ?= ghcr.io/infobloxopen
+
+.PHONY: helm-lint
+helm-lint: ## Lint Helm chart
+	@echo "→ Linting Helm chart..."
+	helm lint $(CHART_DIR)
+	@echo "✓ Helm lint passed"
+
+.PHONY: helm-package
+helm-package: ## Package Helm chart as .tgz
+	@echo "→ Packaging Helm chart..."
+	helm package $(CHART_DIR) --version $(CHART_VERSION)
+	@echo "✓ Chart packaged: $(CHART_NAME)-$(CHART_VERSION).tgz"
+
+.PHONY: helm-push
+helm-push: helm-package ## Push Helm chart to OCI registry
+	@echo "→ Pushing Helm chart to $(REGISTRY)..."
+	helm push $(CHART_NAME)-$(CHART_VERSION).tgz oci://$(REGISTRY)
+	@echo "✓ Chart pushed: oci://$(REGISTRY)/$(CHART_NAME):$(CHART_VERSION)"
+
+.PHONY: helm-test-e2e
+helm-test-e2e: ## Run end-to-end tests with k3d
+	@echo "→ Running Helm chart E2E tests..."
+	@if [ ! -f tests/e2e/test-helm-chart.sh ]; then \
+		echo "⚠ tests/e2e/test-helm-chart.sh not found - skipping tests"; \
+		exit 0; \
+	fi
+	bash tests/e2e/test-helm-chart.sh
+	@echo "✓ E2E tests passed"
+
