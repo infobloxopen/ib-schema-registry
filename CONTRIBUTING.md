@@ -91,6 +91,9 @@ make sbom-validate
    # Test with Chainguard base images
    make build RUNTIME_IMAGE=cgr.dev/chainguard/jre:latest
    make test
+   
+   # Optional: Test provenance generation locally
+   # See docs/local-provenance-testing.md for details
    ```
 
 4. **Verify Multi-Arch Builds**
@@ -159,6 +162,38 @@ docker run -d -p 8081:8081 ib-schema-registry:latest
 curl http://localhost:8081/subjects
 ```
 
+### Provenance Testing
+
+**For Contributors**: Pull request builds automatically skip provenance generation. This is expected behavior and will not affect your PR.
+
+**For Maintainers**: After merging to main or creating a release, verify provenance attestations:
+
+```bash
+# After merge to main
+cosign verify-attestation \
+  --type slsaprovenance \
+  --certificate-identity-regexp '^https://github.com/infobloxopen/ib-schema-registry/' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  ghcr.io/infobloxopen/ib-schema-registry:main
+
+# After release tag
+cosign verify-attestation \
+  --type slsaprovenance \
+  --certificate-identity-regexp '^https://github.com/infobloxopen/ib-schema-registry/' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  ghcr.io/infobloxopen/ib-schema-registry:v1.0.0
+
+# Quick check with docker buildx
+docker buildx imagetools inspect \
+  ghcr.io/infobloxopen/ib-schema-registry:main \
+  --format '{{json .Provenance}}' | jq '.SLSA.predicateType'
+```
+
+📘 **Full documentation**:
+- [Provenance Verification Guide](docs/provenance-verification.md)
+- [CI Provenance Behavior](docs/ci-provenance-guide.md)
+- [Troubleshooting](docs/troubleshooting-provenance.md)
+
 ### Writing Tests
 
 When adding new features, update `tests/smoke.sh` to include:
@@ -176,6 +211,8 @@ All PRs must:
 - ✅ Work with Chainguard alternative base images
 - ✅ Include tests for new functionality
 - ✅ Not break existing functionality
+
+**Note on Provenance**: Pull request builds automatically skip provenance generation (this is expected behavior). Provenance attestations are only generated when images are pushed to the registry (merges to main, tagged releases). See [docs/ci-provenance-guide.md](docs/ci-provenance-guide.md) for details.
 
 ## Code Review Process
 

@@ -35,8 +35,14 @@
 - [X] **No secrets in layers**: Build uses args, not ENV for secrets
 - [X] **OCI metadata**: All required labels present (source, version, revision, created)
 - [X] **Version extraction**: Automated from git submodule tag
+- [X] **Provenance attestation**: SLSA provenance automatically generated for all CI builds (GitHub OIDC signing)
+  - Architecture-specific attestations for linux/amd64 and linux/arm64
+  - Includes source repository, commit SHA, build workflow, timestamp
+  - Verifiable with cosign, slsa-verifier, docker buildx
+  - Documentation: [docs/provenance-verification.md](docs/provenance-verification.md)
+- [ ] **SBOM generation**: Not yet implemented (planned future enhancement)
 
-**Status**: ✅ **PASS**
+**Status**: ✅ **PASS** (Provenance attestation now fully implemented, exceeds constitution RECOMMENDED requirements)
 
 ## V. Licensing & Compliance
 

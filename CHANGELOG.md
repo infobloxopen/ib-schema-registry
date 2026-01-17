@@ -44,6 +44,78 @@ None identified. All functionality from 7.6.1 carries forward to 8.1.1.
 
 ### Added
 
+#### SLSA Provenance Attestation (Feature 001-slsa-provenance-attestation) - 2026-01-17
+
+**New Feature**: All container images now include SLSA (Supply-chain Levels for Software Artifacts) provenance attestations for cryptographically verifiable build metadata.
+
+**Provenance Features**:
+- ✅ **Automatic provenance generation** during CI/CD builds (GitHub Actions + BuildKit)
+- ✅ **Multi-architecture support**: Separate attestations for linux/amd64 and linux/arm64
+- ✅ **Keyless signing**: Uses GitHub OIDC tokens (no secret management required)
+- ✅ **Comprehensive metadata**: Source repository, commit SHA, build workflow, timestamp
+- ✅ **Industry-standard verification**: Compatible with cosign, slsa-verifier, docker buildx
+- ✅ **CI-native**: Automatic attestation for main branch pushes and release tags (skipped for PRs)
+
+**Quick Verification**:
+```bash
+# Verify image provenance with cosign
+cosign verify-attestation \
+  --type slsaprovenance \
+  --certificate-identity-regexp '^https://github.com/infobloxopen/ib-schema-registry/' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  ghcr.io/infobloxopen/ib-schema-registry:latest
+
+# Inspect provenance with docker buildx
+docker buildx imagetools inspect ghcr.io/infobloxopen/ib-schema-registry:latest \
+  --format '{{json .Provenance}}' | jq '.'
+```
+
+**Provenance Content**:
+- **Source Repository**: `https://github.com/infobloxopen/ib-schema-registry`
+- **Source Commit**: Full Git commit SHA
+- **Build Workflow**: GitHub Actions workflow reference (e.g., `refs/heads/main`)
+- **Builder Identity**: GitHub Actions OIDC identity + BuildKit
+- **Build Timestamp**: Start and finish times
+- **Base Images**: Digests of base images used in build
+- **Signature**: Cryptographically signed via GitHub OIDC token
+
+**CI/CD Behavior**:
+- **Pull Requests**: Provenance generation skipped (no registry push)
+- **Main Branch**: Provenance generated and signed for all pushed images
+- **Release Tags**: Provenance includes tag reference for version tracking
+
+**Documentation**:
+- Verification guide: [docs/provenance-verification.md](docs/provenance-verification.md)
+- CI behavior: [docs/ci-provenance-guide.md](docs/ci-provenance-guide.md)
+- Troubleshooting: [docs/troubleshooting-provenance.md](docs/troubleshooting-provenance.md)
+- Query examples: [docs/provenance-examples.md](docs/provenance-examples.md)
+- Local testing: [docs/local-provenance-testing.md](docs/local-provenance-testing.md)
+- Registry limits: [docs/registry-attestation-limits.md](docs/registry-attestation-limits.md)
+- Helm chart verification: [docs/helm-provenance-verification.md](docs/helm-provenance-verification.md)
+
+**Testing**:
+- Automated provenance validation script: `tests/validate-provenance.sh`
+- Post-build verification in CI workflow
+- Multi-architecture attestation testing
+
+**Security Benefits**:
+- **Supply-chain transparency**: Verifiable build provenance for all images
+- **Tamper detection**: Cryptographic signatures prevent unauthorized modifications
+- **Source verification**: Consumers can verify images were built from trusted repository
+- **Compliance**: Meets SLSA Level 1+ requirements for provenance
+
+**Related**:
+- Specification: [specs/001-slsa-provenance-attestation/spec.md](specs/001-slsa-provenance-attestation/spec.md)
+- Tasks: [specs/001-slsa-provenance-attestation/tasks.md](specs/001-slsa-provenance-attestation/tasks.md)
+- Constitution alignment: §IV Supply-Chain Security requirements
+
+**Future Enhancements**:
+- ⏳ Helm chart provenance (when OCI publishing is enabled)
+- ⏳ SBOM generation (Software Bill of Materials)
+- ⏳ Vulnerability scan attestations
+
+---
+
 #### Helm Chart for Kubernetes Deployment (Feature 003) - 2026-01-16
 
 **New Feature**: Production-ready Helm chart for deploying Schema Registry to Kubernetes with high availability features.
