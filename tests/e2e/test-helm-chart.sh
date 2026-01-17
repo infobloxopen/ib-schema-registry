@@ -134,7 +134,7 @@ kubectl get pods -n "$NAMESPACE" --show-labels | grep -E "NAME|helm.sh/hook=test
 
 echo ""
 echo "→ Running helm test..."
-if ! helm test "$RELEASE_NAME" -n "$NAMESPACE" --logs; then
+if ! helm test "$RELEASE_NAME" -n "$NAMESPACE"; then
   echo ""
   echo "❌ Helm test failed! Collecting diagnostics..."
   echo ""
