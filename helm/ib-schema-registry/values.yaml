@@ -120,8 +120,9 @@ serviceAccount:
 
 # Pod Disruption Budget configuration
 # Only created when replicaCount > 1
+# Set enabled: true when deploying with multiple replicas for HA
 podDisruptionBudget:
-  enabled: true
+  enabled: false
   # minAvailable: 1  # Automatically calculated as ceil(replicaCount/2)
 
 # Topology spread constraints for pod distribution
