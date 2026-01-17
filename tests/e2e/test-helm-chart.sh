@@ -5,7 +5,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CHART_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)/helm/ib-schema-registry"
 NAMESPACE="default"
-RELEASE_NAME="schema-registry"
+RELEASE_NAME="test-sr"
+SKIP_TEARDOWN="${SKIP_TEARDOWN:-false}"
 
 echo "╔════════════════════════════════════════════════════════╗"
 echo "║  Schema Registry Helm Chart E2E Tests                 ║"
@@ -16,6 +17,25 @@ echo ""
 cleanup() {
   local exit_code=$?
   echo ""
+  
+  if [ "$SKIP_TEARDOWN" = "true" ]; then
+    echo "⚠️  SKIP_TEARDOWN=true - Leaving cluster running for debugging"
+    echo ""
+    echo "Cluster: schema-registry-test"
+    echo "Release: $RELEASE_NAME"
+    echo "Namespace: $NAMESPACE"
+    echo ""
+    echo "Useful commands:"
+    echo "  kubectl get pods -n $NAMESPACE"
+    echo "  kubectl logs -n $NAMESPACE -l app.kubernetes.io/name=ib-schema-registry"
+    echo "  helm test $RELEASE_NAME -n $NAMESPACE --logs"
+    echo "  kubectl describe pod -n $NAMESPACE -l app.kubernetes.io/name=ib-schema-registry"
+    echo ""
+    echo "To teardown manually:"
+    echo "  bash $SCRIPT_DIR/teardown.sh"
+    exit $exit_code
+  fi
+  
   echo "→ Cleaning up..."
   
   # Uninstall Helm release
@@ -107,7 +127,30 @@ kubectl get pods,svc -n "$NAMESPACE" -l app.kubernetes.io/name=ib-schema-registr
 echo ""
 echo "Step 5/6: Running Helm tests"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-helm test "$RELEASE_NAME" -n "$NAMESPACE" --logs
+
+echo "→ Checking for test pods..."
+echo "Expected test pod name: ${RELEASE_NAME}-ib-schema-registry-test"
+kubectl get pods -n "$NAMESPACE" --show-labels | grep -E "NAME|helm.sh/hook=test" || echo "  No test pods found yet"
+
+echo ""
+echo "→ Running helm test..."
+if ! helm test "$RELEASE_NAME" -n "$NAMESPACE" --logs; then
+  echo ""
+  echo "❌ Helm test failed! Collecting diagnostics..."
+  echo ""
+  echo "=== All pods in namespace ==="
+  kubectl get pods -n "$NAMESPACE" -o wide
+  echo ""
+  echo "=== Test pods (if any) ==="
+  kubectl get pods -n "$NAMESPACE" -l "helm.sh/hook=test" -o wide || echo "No test pods found"
+  echo ""
+  echo "=== Test pod logs (if available) ==="
+  kubectl logs -n "$NAMESPACE" -l "helm.sh/hook=test" --all-containers=true || echo "No logs available"
+  echo ""
+  echo "=== Test pod description ==="
+  kubectl describe pod -n "$NAMESPACE" -l "helm.sh/hook=test" || echo "No test pods to describe"
+  exit 1
+fi
 
 # Step 6: Validate Schema Registry API
 echo ""
