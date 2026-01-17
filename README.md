@@ -10,7 +10,7 @@
 ✅ **Multi-Architecture**: Native support for `linux/amd64` and `linux/arm64`  
 ✅ **Secure by Default**: Chainguard distroless JRE runtime (~60% smaller, minimal CVEs)  
 ✅ **Pluggable Base Images**: Swap between Chainguard (default), Eclipse Temurin, or other JRE bases  
-✅ **Supply-Chain Security**: Non-root user (UID 65532), OCI labels, reproducible builds  
+✅ **Supply-Chain Security**: Non-root user (UID 65532), OCI labels, reproducible builds, SLSA provenance attestations  
 ✅ **Developer Friendly**: Simple `make build` on macOS Apple Silicon or Linux x86  
 ✅ **CI/CD Ready**: GitHub Actions workflow with multi-arch buildx
 
@@ -22,6 +22,26 @@
 - **Docker Buildx**: For multi-architecture builds (`docker buildx version`)
 - **Git**: For submodule management
 - **Make**: Build automation (pre-installed on macOS/Linux)
+
+### Verify Provenance (Supply-Chain Security)
+
+All published images include SLSA provenance attestations that allow you to verify the build origin and integrity:
+
+```bash
+# Install cosign (one-time setup)
+go install github.com/sigstore/cosign/v2/cmd/cosign@latest
+
+# Verify image provenance signature
+cosign verify-attestation \
+  --type slsaprovenance \
+  --certificate-identity-regexp '^https://github.com/infobloxopen/ib-schema-registry/' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  ghcr.io/infobloxopen/ib-schema-registry:latest
+
+# ✅ Success means: signature valid, built by trusted GitHub Actions workflow
+```
+
+📘 **Full verification guide**: See [docs/provenance-verification.md](docs/provenance-verification.md) for comprehensive instructions on using cosign, slsa-verifier, and docker buildx to verify attestations.
 
 ### Build Image
 
@@ -423,9 +443,9 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development workflow, testing guideli
 
 ## Roadmap
 
-- [ ] Helm chart for Kubernetes deployments
+- [X] Helm chart for Kubernetes deployments
 - [ ] SBOM generation (Software Bill of Materials)
-- [ ] Provenance attestation (SLSA framework)
+- [X] Provenance attestation (SLSA framework) - **[Implemented]**
 - [ ] Image signing with cosign
 - [ ] Performance benchmarking suite
 
