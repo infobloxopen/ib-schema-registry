@@ -117,7 +117,7 @@ echo "→ Installing chart from: $CHART_DIR"
 # Enable metrics for E2E testing
 ENABLE_METRICS="${ENABLE_METRICS:-true}"
 
-helm install "$RELEASE_NAME" "$CHART_DIR" \
+if ! helm install "$RELEASE_NAME" "$CHART_DIR" \
   --namespace "$NAMESPACE" \
   --set config.kafkaBootstrapServers="redpanda.$NAMESPACE.svc.cluster.local:9092" \
   --set replicaCount=1 \
@@ -126,7 +126,44 @@ helm install "$RELEASE_NAME" "$CHART_DIR" \
   --set image.pullPolicy=Never \
   --set metrics.enabled="${ENABLE_METRICS}" \
   --wait \
-  --timeout 5m
+  --timeout 5m; then
+  
+  echo ""
+  echo "❌ Helm chart installation failed!"
+  echo ""
+  echo "Collecting diagnostics..."
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  
+  # Get all pods in namespace
+  echo ""
+  echo "→ All pods in namespace:"
+  kubectl get pods -n "$NAMESPACE" -o wide
+  
+  # Describe all Schema Registry pods
+  echo ""
+  echo "→ Describing all Schema Registry pods:"
+  for pod in $(kubectl get pods -n "$NAMESPACE" -l app.kubernetes.io/name=ib-schema-registry -o jsonpath='{.items[*].metadata.name}'); do
+    echo ""
+    echo "==== Pod: $pod ===="
+    kubectl describe pod "$pod" -n "$NAMESPACE"
+  done
+  
+  # Get logs from all Schema Registry pods
+  echo ""
+  echo "→ Logs from all Schema Registry pods:"
+  for pod in $(kubectl get pods -n "$NAMESPACE" -l app.kubernetes.io/name=ib-schema-registry -o jsonpath='{.items[*].metadata.name}'); do
+    echo ""
+    echo "==== Logs from pod: $pod ===="
+    kubectl logs "$pod" -n "$NAMESPACE" --tail=100 || echo "Failed to get logs from $pod"
+  done
+  
+  # Get events
+  echo ""
+  echo "→ Recent events in namespace:"
+  kubectl get events -n "$NAMESPACE" --sort-by='.lastTimestamp' | tail -20
+  
+  exit 1
+fi
 
 echo ""
 echo "✅ Helm chart installed successfully!"
