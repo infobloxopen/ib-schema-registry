@@ -38,52 +38,29 @@ jobs:
       - name: Compute version
         id: version
         run: |
-          # Make version script executable
-          chmod +x scripts/version.sh scripts/validate-version.sh
-          
           # Fetch tags from upstream submodule (required for version computation)
           echo "📦 Fetching upstream submodule tags..."
           cd upstream/schema-registry
           git fetch --tags
           cd ../..
           
-          # Compute version using version script
-          # New versioning scheme: <upstream>-ib.<suffix>.<sha>[.dirty]
-          # - upstream: Upstream Confluent Schema Registry version (e.g., 8.1.1)
-          # - suffix: Release number (e.g., 1) OR branch name (e.g., main, feature-auth)
-          # - sha: Short Git commit SHA (7 characters)
-          # - .dirty: Optional suffix for uncommitted changes
-          # 
-          # Why not use + (build metadata)?
-          # - OCI registries (GHCR, Docker Hub) don't reliably support + in tags
-          # - GHCR URL-encodes + to %2B, causing confusion and errors
-          # - SemVer prerelease (-) is universally supported
-          #
-          # Examples:
-          # - Release tag v8.1.1-ib.1 → 8.1.1-ib.1.abc1234
-          # - Main branch → 8.1.1-ib.main.abc1234
-          # - Feature branch → 8.1.1-ib.feature-auth.abc1234
-          #
-          # See: specs/006-versioning-scheme/spec.md for complete specification
-          
+          # Compute version and cache to .version.mk file
           echo "🔢 Computing version..."
-          ./scripts/version.sh --format=github --quiet >> $GITHUB_OUTPUT
+          make version-file
+          
+          # Export version variables to GitHub Actions output
+          cat .version.mk >> $GITHUB_OUTPUT
           
           # Display computed version
           echo "✅ Version computed successfully"
           echo ""
           echo "Version Information:"
-          ./scripts/version.sh --format=make | sed 's/^/  /'
+          cat .version.mk | sed 's/^/  /'
           
           # Validate version format
           echo ""
           echo "🔍 Validating version format..."
-          TAG=$(grep '^TAG=' $GITHUB_OUTPUT | cut -d'=' -f2)
-          if ! ./scripts/validate-version.sh "$TAG" > /dev/null 2>&1; then
-            echo "::error::Generated invalid version: $TAG"
-            ./scripts/validate-version.sh "$TAG"
-            exit 1
-          fi
+          make version-validate
           echo "✅ Version format valid"
 
       - name: Log in to GitHub Container Registry
@@ -403,6 +380,23 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
+        
+      - name: Compute version
+        id: version
+        run: |
+          # Fetch tags from upstream submodule
+          cd upstream/schema-registry
+          git fetch --tags
+          cd ../..
+          
+          # Compute version using Makefile target
+          make version-file
+          
+          # Export TAG for image pull
+          TAG=$(grep '^TAG = ' .version.mk | cut -d' ' -f3)
+          echo "TAG=$TAG" >> $GITHUB_OUTPUT
         
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -413,8 +407,8 @@ jobs:
 
       - name: Pull and test image
         run: |
-          SHORT_SHA="$(echo ${{ github.sha }} | cut -c1-7)"
-          IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${SHORT_SHA}"
+          IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.TAG }}"
+          echo "Pulling image: $IMAGE_TAG"
           docker pull "$IMAGE_TAG"
           
           # Run smoke tests
@@ -443,6 +437,20 @@ jobs:
         with:
           version: '3.13.0'
 
+      - name: Compute version for image tag
+        id: version
+        run: |
+          # Fetch tags from upstream submodule
+          cd upstream/schema-registry
+          git fetch --tags
+          cd ../..
+          
+          # Compute version and cache to .version.mk file
+          make version-file
+          
+          # Export version variables to GitHub Actions output
+          cat .version.mk >> $GITHUB_OUTPUT
+
       - name: Install k3d
         run: |
           curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
@@ -459,9 +467,8 @@ jobs:
 
       - name: Prepare image for E2E tests
         run: |
-          # Pull the built image from GHCR (now published for all builds including PRs)
-          SHORT_SHA="$(echo ${{ github.sha }} | cut -c1-7)"
-          IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${SHORT_SHA}"
+          # Pull the built image from GHCR using the computed version tag
+          IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.TAG }}"
           echo "Pulling image: $IMAGE_TAG"
           docker pull "$IMAGE_TAG"
           docker tag "$IMAGE_TAG" "ib-schema-registry:test"

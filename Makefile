@@ -23,10 +23,16 @@ PLATFORMS ?= linux/amd64,linux/arm64
 NATIVE_ARCH := $(shell uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
 NATIVE_PLATFORM := linux/$(NATIVE_ARCH)
 
-# Version metadata (computed using version script)
-VERSION ?= $(shell ./scripts/version.sh --quiet 2>/dev/null || echo "dev")
-UPSTREAM_VERSION ?= $(shell ./scripts/version.sh --format=export --quiet 2>/dev/null | grep '^UPSTREAM_VERSION=' | cut -d'"' -f2 || echo "dev")
-SHA ?= $(shell ./scripts/version.sh --format=export --quiet 2>/dev/null | grep '^SHA=' | cut -d'"' -f2 || git rev-parse --short=7 HEAD 2>/dev/null || echo "unknown")
+# Version file for caching computed version (avoids recomputation)
+VERSION_FILE := .version.mk
+
+# Include cached version if it exists
+-include $(VERSION_FILE)
+
+# Version metadata (use cached values from .version.mk, fallback to defaults)
+VERSION ?= dev
+UPSTREAM_VERSION ?= dev
+SHA ?= $(shell git rev-parse --short=7 HEAD 2>/dev/null || echo "unknown")
 REVISION := $(SHA)
 CREATED := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 
@@ -86,13 +92,21 @@ submodule-update: ## Update upstream Schema Registry to latest version
 	git submodule update --remote upstream/schema-registry
 	@cd upstream/schema-registry && git describe --tags
 	@echo "✓ Submodule updated"
+	@echo "→ Recomputing version after submodule update..."
+	@$(MAKE) version-file
+
+.PHONY: version-file
+version-file: ## Compute version and cache to .version.mk file
+	@echo "→ Computing version..."
+	@./scripts/version.sh --format=make --quiet > $(VERSION_FILE)
+	@echo "✓ Version cached to $(VERSION_FILE)"
 
 .PHONY: version
-version: ## Display computed version information
+version: version-file ## Display computed version information
 	@echo "═══════════════════════════════════════════════════════"
 	@echo "Version Information"
 	@echo "═══════════════════════════════════════════════════════"
-	@./scripts/version.sh --format=make | sed 's/^/  /'
+	@cat $(VERSION_FILE) | sed 's/^/  /'
 	@echo ""
 	@echo "Full version string:"
 	@echo "  $(VERSION)"
@@ -104,12 +118,12 @@ version: ## Display computed version information
 	@echo "  .dirty:   Present if uncommitted changes exist"
 
 .PHONY: version-validate
-version-validate: ## Validate computed version format
+version-validate: version-file ## Validate computed version format
 	@echo "→ Validating computed version..."
 	@./scripts/validate-version.sh "$(VERSION)"
 
 .PHONY: build
-build: ## Build container image for native platform
+build: version-file ## Build container image for native platform
 	@echo "→ Building $(IMAGE):$(TAG) for $(NATIVE_PLATFORM)..."
 	@echo "  Base images: $(BUILDER_IMAGE) → $(RUNTIME_IMAGE)"
 	@echo "  Version: $(VERSION) (upstream: $(UPSTREAM_VERSION), sha: $(SHA))"
@@ -121,7 +135,7 @@ build: ## Build container image for native platform
 	@echo "✓ Build complete: $(IMAGE):$(TAG)"
 
 .PHONY: buildx
-buildx: ## Build multi-architecture image (amd64 + arm64)
+buildx: version-file ## Build multi-architecture image (amd64 + arm64)
 	@echo "→ Building $(IMAGE):$(TAG) for $(PLATFORMS)..."
 	@echo "  Base images: $(BUILDER_IMAGE) → $(RUNTIME_IMAGE)"
 	@echo "  Version: $(VERSION) (upstream: $(UPSTREAM_VERSION), sha: $(SHA))"
@@ -137,7 +151,7 @@ buildx: ## Build multi-architecture image (amd64 + arm64)
 	@echo "  docker buildx imagetools inspect $(IMAGE):$(TAG)"
 
 .PHONY: push
-push: ## Push image to registry (requires IMAGE and TAG)
+push: version-file ## Push image to registry (requires IMAGE and TAG)
 	@echo "→ Pushing $(IMAGE):$(TAG) to registry..."
 	docker buildx build \
 		--platform $(PLATFORMS) \
