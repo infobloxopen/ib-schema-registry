@@ -7,7 +7,7 @@ metadata:
     {{- include "ib-schema-registry.labels" . | nindent 4 }}
     app.kubernetes.io/component: metrics
 data:
-  jmx-exporter-config.yaml: |
+  config.yaml: |
     {{- if .Values.metrics.config }}
     {{- .Values.metrics.config | nindent 4 }}
     {{- else }}
