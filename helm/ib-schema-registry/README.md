@@ -23,12 +23,12 @@ Helm chart for deploying Confluent Schema Registry on Kubernetes with multi-arch
 
 ```bash
 # Install stable release
-helm install schema-registry oci://ghcr.io/infobloxopen/ib-schema-registry \
+helm install schema-registry oci://ghcr.io/infobloxopen/ib-schema-registry-chart \
   --version 8.1.1-ib.1.abc1234 \
   --set config.kafkaBootstrapServers="kafka:9092"
 
 # Install development build
-helm install schema-registry-dev oci://ghcr.io/infobloxopen/ib-schema-registry \
+helm install schema-registry-dev oci://ghcr.io/infobloxopen/ib-schema-registry-chart \
   --version 8.1.1-ib.main.abc1234 \
   --set config.kafkaBootstrapServers="kafka:9092"
 ```

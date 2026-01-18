@@ -365,14 +365,19 @@ jobs:
           fi
           
           # Push chart to GHCR (enabled for all builds including PRs)
+          # Use -chart suffix to distinguish from Docker image in same registry path
+          HELM_REGISTRY="oci://${{ env.REGISTRY }}/${{ github.repository_owner }}"
+          HELM_CHART_NAME="ib-schema-registry-chart"
+          
           echo "🔐 Authenticating to GHCR..."
           echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
           
           echo "📤 Pushing chart to OCI registry..."
-          helm push "${CHART_FILE}" oci://${{ env.REGISTRY }}/${{ github.repository_owner }}
+          # Helm creates the chart artifact as <chart-name>:<version> in the target registry
+          helm push "${CHART_FILE}" "${HELM_REGISTRY}"
           
-          echo "🚀 Published chart: oci://${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${TAG}"
-          echo "📥 Install command: helm install my-registry oci://${{ env.REGISTRY }}/${{ env.IMAGE_NAME }} --version ${TAG}"
+          echo "🚀 Published chart: ${HELM_REGISTRY}/${HELM_CHART_NAME}:${TAG}"
+          echo "📥 Install command: helm install my-registry ${HELM_REGISTRY}/${HELM_CHART_NAME} --version ${TAG}"
 
   test:
     needs: build
