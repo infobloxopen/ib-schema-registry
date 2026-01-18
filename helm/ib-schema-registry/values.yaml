@@ -9,7 +9,9 @@ replicaCount: 1
 image:
   repository: ghcr.io/infobloxopen/ib-schema-registry
   pullPolicy: IfNotPresent
-  # Overrides the image tag whose default is the chart appVersion
+  # Overrides the image tag whose default is the chart appVersion.
+  # Leave empty ("") to use the chart appVersion, which is automatically
+  # synchronized with the Docker image version during CI/CD builds.
   tag: ""
 
 # Image pull secrets for private registries

@@ -89,8 +89,14 @@ curl http://localhost:8081/subjects
 ### Quick Deploy to Kubernetes
 
 ```bash
-# Install from OCI registry
+# Install stable release from OCI registry
 helm install schema-registry oci://ghcr.io/infobloxopen/ib-schema-registry \
+  --version 1.2.3 \
+  --set config.kafkaBootstrapServers="kafka:9092"
+
+# Install development build from main branch
+helm install schema-registry-dev oci://ghcr.io/infobloxopen/ib-schema-registry \
+  --version 0.0.0-main.abc1234 \
   --set config.kafkaBootstrapServers="kafka:9092"
 
 # Or install from local chart
@@ -98,11 +104,33 @@ helm install schema-registry ./helm/ib-schema-registry \
   --set config.kafkaBootstrapServers="kafka:9092"
 ```
 
+### Helm Chart Versioning
+
+**Stable Releases**: Charts are automatically published when git tags are pushed:
+- Git tag `v1.2.3` → Helm chart version `1.2.3`
+- Version synchronized with Docker image version
+- Install: `helm install ... oci://ghcr.io/infobloxopen/ib-schema-registry --version 1.2.3`
+
+**Development Builds**: Charts published for every commit to main branch:
+- Commit to main → Chart version `0.0.0-main.<short-sha>`
+- Enables testing pre-release features
+- Install: `helm install ... oci://ghcr.io/infobloxopen/ib-schema-registry --version 0.0.0-main.abc1234`
+
+**List Available Versions**:
+```bash
+# List all published chart versions
+helm search repo ib-schema-registry --versions
+
+# Pull specific version
+helm pull oci://ghcr.io/infobloxopen/ib-schema-registry --version 1.2.3
+```
+
 ### Production HA Deployment
 
 ```bash
 # Deploy with 3 replicas, PodDisruptionBudget, and topology spread
 helm install schema-registry oci://ghcr.io/infobloxopen/ib-schema-registry \
+  --version 1.2.3 \
   --set config.kafkaBootstrapServers="kafka-0:9092,kafka-1:9092,kafka-2:9092" \
   --set replicaCount=3 \
   --set resources.requests.memory=1Gi \
