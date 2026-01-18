@@ -12,39 +12,39 @@ Tasks are organized by phase and must be executed in order within each phase. Ta
 ## Phase 0: Research & Design (Foundation)
 
 ### T001: Create research.md
-- [ ] Document semver prerelease vs build metadata comparison
-- [ ] Research OCI registry tag character restrictions  
-- [ ] Document docker metadata-action compatibility
-- [ ] Research Helm chart version field semver requirements
-- [ ] Define git tag naming conventions for releases
+- [X] Document semver prerelease vs build metadata comparison
+- [X] Research OCI registry tag character restrictions  
+- [X] Document docker metadata-action compatibility
+- [X] Research Helm chart version field semver requirements
+- [X] Define git tag naming conventions for releases
 - **Files**: `specs/006-versioning-scheme/research.md`
 - **Dependencies**: None
 - **Validation**: Document created with all sections complete
 
 ### T002: Create data-model.md
-- [ ] Define Version String entity with format and validation rules
-- [ ] Define Upstream Version extraction algorithm
-- [ ] Define SHA computation method
-- [ ] Define Dirty detection logic
-- [ ] Define Branch name sanitization rules
+- [X] Define Version String entity with format and validation rules
+- [X] Define Upstream Version extraction algorithm
+- [X] Define SHA computation method
+- [X] Define Dirty detection logic
+- [X] Define Branch name sanitization rules
 - **Files**: `specs/006-versioning-scheme/data-model.md`
 - **Dependencies**: T001
 - **Validation**: All entities documented with examples
 
 ### T003: Create contracts/version-format.md [P]
-- [ ] Define regex pattern for valid version strings
-- [ ] Provide examples for each scenario (release, main, feature, dirty)
-- [ ] Document character set restrictions
-- [ ] Document maximum length constraints
+- [X] Define regex pattern for valid version strings
+- [X] Provide examples for each scenario (release, main, feature, dirty)
+- [X] Document character set restrictions
+- [X] Document maximum length constraints
 - **Files**: `specs/006-versioning-scheme/contracts/version-format.md`
 - **Dependencies**: T002
 - **Validation**: Contract document with test cases
 
 ### T004: Audit codebase for version usage [P]
-- [ ] Grep for VERSION, TAG, +infoblox, metadata-action references
-- [ ] Document all files that reference versioning
-- [ ] Identify Makefile variables to update
-- [ ] Identify workflow steps to update
+- [X] Grep for VERSION, TAG, +infoblox, metadata-action references
+- [X] Document all files that reference versioning
+- [X] Identify Makefile variables to update
+- [X] Identify workflow steps to update
 - **Files**: Audit notes (can be inline or separate file)
 - **Dependencies**: None
 - **Validation**: Complete list of files to modify
@@ -54,58 +54,58 @@ Tasks are organized by phase and must be executed in order within each phase. Ta
 ## Phase 1: Version Computation Script (Core Logic)
 
 ### T005: Create scripts/version.sh structure
-- [ ] Create executable script file with proper shebang
-- [ ] Add get_upstream_version() function
-- [ ] Add get_short_sha() function
-- [ ] Add detect_dirty() function
-- [ ] Add get_branch_name() function
-- [ ] Add sanitize_branch() function
+- [X] Create executable script file with proper shebang
+- [X] Add get_upstream_version() function
+- [X] Add get_short_sha() function
+- [X] Add detect_dirty() function
+- [X] Add get_branch_name() function
+- [X] Add sanitize_branch() function
 - **Files**: `scripts/version.sh`
 - **Dependencies**: T002
 - **Validation**: Script exists, is executable, functions defined
 
 ### T006: Implement version computation logic
-- [ ] Implement release tag detection and parsing
-- [ ] Implement main branch version format
-- [ ] Implement feature branch version format with sanitization
-- [ ] Add compute_version() main entry point
+- [X] Implement release tag detection and parsing
+- [X] Implement main branch version format
+- [X] Implement feature branch version format with sanitization
+- [X] Add compute_version() main entry point
 - **Files**: `scripts/version.sh`
 - **Dependencies**: T005
 - **Validation**: All version scenarios produce correct format
 
 ### T007: Add output format modes
-- [ ] Implement --format=export (shell variables)
-- [ ] Implement --format=json (JSON object)
-- [ ] Implement --format=make (Makefile syntax)
-- [ ] Implement --format=github (GH Actions output)
-- [ ] Implement default plain TAG output
+- [X] Implement --format=export (shell variables)
+- [X] Implement --format=json (JSON object)
+- [X] Implement --format=make (Makefile syntax)
+- [X] Implement --format=github (GH Actions output)
+- [X] Implement default plain TAG output
 - **Files**: `scripts/version.sh`
 - **Dependencies**: T006
 - **Validation**: Each format produces correct output
 
 ### T008: Handle edge cases
-- [ ] Handle missing upstream submodule (fallback or error)
-- [ ] Handle git tag without -ib.N suffix (default to -ib.1)
-- [ ] Handle detached HEAD state
-- [ ] Handle shallow clone (ensure git describe works)
+- [X] Handle missing upstream submodule (fallback or error)
+- [X] Handle git tag without -ib.N suffix (default to -ib.1)
+- [X] Handle detached HEAD state
+- [X] Handle shallow clone (ensure git describe works)
 - **Files**: `scripts/version.sh`
 - **Dependencies**: T007
 - **Validation**: Edge case tests pass
 
 ### T009: Add validate_version() function
-- [ ] Check character set [A-Za-z0-9_.-]
-- [ ] Verify semver prerelease format with regex
-- [ ] Add maximum length check (255 chars)
-- [ ] Return proper exit codes
+- [X] Check character set [A-Za-z0-9_.-]
+- [X] Verify semver prerelease format with regex
+- [X] Add maximum length check (255 chars)
+- [X] Return proper exit codes
 - **Files**: `scripts/version.sh`
 - **Dependencies**: T006
 - **Validation**: Validation catches invalid versions
 
 ### T010: Create scripts/validate-version.sh [P]
-- [ ] Create wrapper script for external validation
-- [ ] Use semver tool if available (optional)
-- [ ] Validate against version format contract
-- [ ] Output human-readable error messages
+- [X] Create wrapper script for external validation
+- [X] Use semver tool if available (optional)
+- [X] Validate against version format contract
+- [X] Output human-readable error messages
 - **Files**: `scripts/validate-version.sh`
 - **Dependencies**: T003, T009
 - **Validation**: Script validates versions correctly
