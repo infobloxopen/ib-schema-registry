@@ -52,6 +52,18 @@ service:
   annotations: {}
   # cloud.google.com/load-balancer-type: "Internal"
 
+# Legacy service alias (optional)
+# Enable this to create a second service with a legacy name
+# that routes to the same pods as the main service
+legacyService:
+  enabled: false
+  # Name of the legacy service (defaults to <fullname>-legacy if not specified)
+  name: ""
+  type: ClusterIP
+  port: 8081
+  # Additional annotations for the legacy service
+  annotations: {}
+
 # Resource requests and limits
 resources:
   limits:

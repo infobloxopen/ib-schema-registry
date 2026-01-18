@@ -1,0 +1,22 @@
+{{- if .Values.legacyService.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.legacyService.name | default (printf "%s-legacy" (include "ib-schema-registry.fullname" .)) }}
+  labels:
+    {{- include "ib-schema-registry.labels" . | nindent 4 }}
+    app.kubernetes.io/component: legacy-service
+  {{- with .Values.legacyService.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.legacyService.type }}
+  ports:
+    - port: {{ .Values.legacyService.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "ib-schema-registry.selectorLabels" . | nindent 4 }}
+{{- end }}
