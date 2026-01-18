@@ -49,7 +49,8 @@ jobs:
           make version-file
           
           # Export version variables to GitHub Actions output
-          cat .version.mk >> $GITHUB_OUTPUT
+          # Transform Makefile format (VAR = value) to GitHub Actions format (VAR=value)
+          sed 's/ = /=/g' .version.mk >> $GITHUB_OUTPUT
           
           # Display computed version
           echo "✅ Version computed successfully"
@@ -449,7 +450,8 @@ jobs:
           make version-file
           
           # Export version variables to GitHub Actions output
-          cat .version.mk >> $GITHUB_OUTPUT
+          # Transform Makefile format (VAR = value) to GitHub Actions format (VAR=value)
+          sed 's/ = /=/g' .version.mk >> $GITHUB_OUTPUT
 
       - name: Install k3d
         run: |
