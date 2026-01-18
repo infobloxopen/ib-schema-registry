@@ -53,9 +53,14 @@ get_upstream_version() {
     return 1
   fi
   
-  # Get latest tag from upstream
+  # Get tag pointing directly to current commit (fast - no history walk)
   local version
-  version=$(cd "$upstream_dir" && git describe --tags --abbrev=0 2>/dev/null)
+  version=$(cd "$upstream_dir" && git tag --points-at HEAD 2>/dev/null | grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+$' | head -n1)
+  
+  # Fall back to nearest tag if no exact match (slower)
+  if [ -z "$version" ]; then
+    version=$(cd "$upstream_dir" && git describe --tags --abbrev=0 2>/dev/null)
+  fi
   
   if [ -z "$version" ]; then
     error "No upstream version tags found in $upstream_dir"
