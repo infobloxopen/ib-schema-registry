@@ -1,8 +1,10 @@
 {{/*
 Expand the name of the chart.
+Use fixed "ib-schema-registry" for labels to maintain compatibility,
+even though Chart.yaml name is "ib-schema-registry-chart" to avoid OCI collision.
 */}}
 {{- define "ib-schema-registry.name" -}}
-{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
+{{- default "ib-schema-registry" .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
