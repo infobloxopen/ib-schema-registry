@@ -5,7 +5,21 @@ ARG BUILDER_IMAGE=maven:3-eclipse-temurin-17
 ARG RUNTIME_IMAGE=cgr.dev/chainguard/jre:latest
 
 # =============================================================================
-# Builder Stage - Compile Schema Registry from upstream source
+# JMX Exporter Builder Stage - Build Prometheus JMX Exporter from source
+# =============================================================================
+FROM --platform=$BUILDPLATFORM ${BUILDER_IMAGE} AS jmx-builder
+
+ENV MAVEN_OPTS="-Xmx1024m -XX:+UseSerialGC -Xss256k"
+
+WORKDIR /workspace/jmx_exporter
+
+COPY upstream/jmx_exporter /workspace/jmx_exporter
+
+RUN --mount=type=cache,target=/root/.m2,id=jmx-m2-cache \
+    mvn clean package -DskipTests
+
+# =============================================================================
+# Schema Registry Builder Stage - Compile Schema Registry from upstream source
 # =============================================================================
 # Use --platform=$BUILDPLATFORM to run Maven on native architecture
 # This prevents protoc cross-compilation issues (protoc-jar downloads platform-specific binaries)
@@ -39,7 +53,7 @@ RUN apt-get update && apt-get install -y patch && rm -rf /var/lib/apt/lists/* &&
 WORKDIR /workspace/upstream/schema-registry
 
 # Build the application (dependency versions patched in pom.xml)
-RUN --mount=type=cache,target=/root/.m2 \
+RUN --mount=type=cache,target=/root/.m2,id=schema-registry-m2-cache \
     mvn -DskipTests package -P standalone \
     -Dspotbugs.skip=true \
     -Dcheckstyle.skip=true \
@@ -47,12 +61,6 @@ RUN --mount=type=cache,target=/root/.m2 \
     -Dmaven.javadoc.skip=true \
     -Dhttp.keepAlive=false \
     -Dmaven.wagon.http.pool=false
-
-# Build JMX Prometheus Exporter from source
-COPY upstream/jmx_exporter /workspace/upstream/jmx_exporter
-WORKDIR /workspace/upstream/jmx_exporter
-RUN --mount=type=cache,target=/root/.m2 \
-    mvn clean package -DskipTests
 
 # =============================================================================
 # Runtime Stage - Minimal JRE with Schema Registry
@@ -88,8 +96,8 @@ COPY --from=builder --chown=65532:65532 \
 
 # Copy JMX Prometheus Exporter javaagent for metrics collection
 # Built from upstream source in jmx_exporter submodule
-COPY --from=builder --chown=65532:65532 \
-    /workspace/upstream/jmx_exporter/jmx_prometheus_javaagent/target/jmx_prometheus_javaagent-*.jar \
+COPY --from=jmx-builder --chown=65532:65532 \
+    /workspace/jmx_exporter/jmx_prometheus_javaagent/target/jmx_prometheus_javaagent-*.jar \
     /opt/jmx-exporter/jmx_prometheus_javaagent.jar
 
 # Copy default configuration
