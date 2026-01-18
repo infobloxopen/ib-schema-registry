@@ -1,0 +1,405 @@
+# Contract: Workflow Integration for Helm Chart Publishing
+
+**Feature**: 005-helm-chart-automation  
+**Date**: January 17, 2026  
+**File**: `.github/workflows/build-image.yml`
+
+---
+
+## Overview
+
+This contract defines the integration point for Helm chart publishing in the CI/CD workflow. The step is added to the existing `build` job after SBOM attestations and before the `test` job.
+
+---
+
+## Workflow Step Specification
+
+### Pseudo-Code
+
+```yaml
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write  # Required for GHCR push (already present)
+      id-token: write
+      attestations: write
+      
+    steps:
+      # ... existing steps (checkout, QEMU, buildx, login, metadata, build, SBOM) ...
+      
+      # === NEW STEP: Package and Publish Helm Chart ===
+      - name: Package and publish Helm chart
+        if: github.event_name == 'push'  # Only on push events (not PRs)
+        continue-on-error: true  # Don't fail build if chart publishing has issues
+        run: |
+          set -euo pipefail  # Exit on error, undefined vars, pipe failures
+          
+          # Extract version from metadata action
+          VERSION="${{ steps.meta.outputs.version }}"
+          echo "📦 Packaging Helm chart with version: ${VERSION}"
+          
+          # Transform branch builds to pre-release format
+          # If VERSION contains no dots, assume it's a branch name (e.g., "main")
+          if [[ "$VERSION" != *"."* ]]; then
+            SHORT_SHA="$(echo ${{ github.sha }} | cut -c1-7)"
+            VERSION="0.0.0-${VERSION}.${SHORT_SHA}"
+            echo "🔄 Transformed branch build version to: ${VERSION}"
+          fi
+          
+          # Update Chart.yaml dynamically (build-time only, not committed)
+          sed -i "s/^version:.*/version: ${VERSION}/" helm/ib-schema-registry/Chart.yaml
+          sed -i "s/^appVersion:.*/appVersion: \"${VERSION}\"/" helm/ib-schema-registry/Chart.yaml
+          
+          # Verify updates
+          echo "📄 Chart.yaml version fields:"
+          grep "^version:" helm/ib-schema-registry/Chart.yaml
+          grep "^appVersion:" helm/ib-schema-registry/Chart.yaml
+          
+          # Package chart
+          helm package helm/ib-schema-registry/
+          CHART_FILE="ib-schema-registry-${VERSION}.tgz"
+          
+          if [ ! -f "${CHART_FILE}" ]; then
+            echo "::error::Chart file not found: ${CHART_FILE}"
+            exit 1
+          fi
+          
+          echo "✅ Chart packaged: ${CHART_FILE} ($(stat -f%z "${CHART_FILE}" 2>/dev/null || stat -c%s "${CHART_FILE}") bytes)"
+          
+          # Authenticate to GHCR
+          echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
+          
+          # Push chart to OCI registry
+          helm push "${CHART_FILE}" oci://${{ env.REGISTRY }}/${{ github.repository_owner }}
+          
+          # Log success with full reference
+          echo "🚀 Published chart: oci://${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSION}"
+          echo "📥 Install command: helm install my-registry oci://${{ env.REGISTRY }}/${{ env.IMAGE_NAME }} --version ${VERSION}"
+      
+      # ... existing test job and other steps ...
+```
+
+---
+
+## Contract Conditions
+
+### Pre-conditions
+
+1. **Metadata Action Completed**: `steps.meta` has executed successfully and `steps.meta.outputs.version` is available
+2. **Docker Image Built**: Docker build step completed (chart packaging doesn't depend on this, but logical ordering)
+3. **SBOM Attestations Completed**: SBOM steps finished (chart is supplementary artifact)
+4. **Helm CLI Available**: GitHub Actions ubuntu-latest runner includes Helm 3.x by default
+5. **Chart Directory Exists**: `helm/ib-schema-registry/` directory present in repository with valid Chart.yaml
+
+### Execution Conditions
+
+1. **Event Type**: Only executes on `push` events (branches or tags), NOT on `pull_request` events
+2. **Authentication**: `GITHUB_TOKEN` secret available with `packages:write` permission
+3. **Repository Writable**: Workflow has permission to push to GHCR namespace
+
+### Post-conditions (Success)
+
+1. **Chart Published**: Helm chart available at `oci://ghcr.io/infobloxopen/ib-schema-registry:<version>`
+2. **Version Synchronized**: Chart version exactly matches Docker image version from `steps.meta.outputs.version`
+3. **Chart.yaml Updated**: Build-time Chart.yaml contains correct version/appVersion (discarded after workflow)
+4. **Artifact Installable**: Chart can be pulled and installed via Helm CLI
+5. **Workflow Continues**: Test job executes regardless of chart publishing outcome (due to `continue-on-error: true`)
+
+### Post-conditions (Failure)
+
+1. **Error Logged**: Workflow logs contain clear error message indicating chart publishing failure
+2. **Build Continues**: Docker image is still considered successfully published (primary artifact)
+3. **No Partial State**: If `helm push` fails, chart is not partially published (GHCR guarantees atomicity)
+4. **Git Unchanged**: Chart.yaml modifications discarded (workflow working directory destroyed)
+
+---
+
+## Error Handling Contract
+
+### Error Scenarios
+
+| Error | Cause | Behavior | User Impact |
+|-------|-------|----------|-------------|
+| `helm package` fails | Invalid Chart.yaml syntax | Log error, exit step | Chart not published; workflow continues |
+| `helm registry login` fails | Invalid GITHUB_TOKEN or permissions | Log error, exit step | Chart not published; workflow continues |
+| `helm push` fails | Network issue, registry unavailable | Log error, exit step | Chart not published; workflow continues |
+| `sed` replacement fails | Chart.yaml format unexpected | Log error, exit step | Chart not published; workflow continues |
+| Version format invalid | Unexpected metadata-action output | Helm package fails, log error | Chart not published; workflow continues |
+
+### Error Messages
+
+```bash
+# Example error output (chart packaging fails):
+::error::Chart file not found: ib-schema-registry-1.2.3.tgz
+Error: Failed to package Helm chart
+::warning::Helm chart publishing failed - Docker image published successfully
+
+# Example error output (authentication fails):
+Error: failed to login: DENIED: denied
+::warning::Helm chart publishing failed - Docker image published successfully
+```
+
+### Debugging Information
+
+On failure, the step logs include:
+1. Extracted version from metadata-action
+2. Transformed version (if branch build)
+3. Chart.yaml version/appVersion values after sed replacement
+4. Helm command output (verbose errors)
+5. Chart file size (if packaging succeeded)
+
+---
+
+## Version Transformation Contract
+
+### Git Tag → Chart Version
+
+| Input | `github.ref` | `steps.meta.outputs.version` | Chart Version | Chart appVersion |
+|-------|--------------|------------------------------|---------------|------------------|
+| Tag v1.2.3 | `refs/tags/v1.2.3` | `1.2.3` | `1.2.3` | `"1.2.3"` |
+| Tag v10.0.0 | `refs/tags/v10.0.0` | `10.0.0` | `10.0.0` | `"10.0.0"` |
+| Branch main | `refs/heads/main` | `main` | `0.0.0-main.<sha>` | `"0.0.0-main.<sha>"` |
+| Branch feature-xyz | `refs/heads/feature-xyz` | `feature-xyz` | `0.0.0-feature-xyz.<sha>` | `"0.0.0-feature-xyz.<sha>"` |
+| SHA build | N/A | `sha-abc1234` | `sha-abc1234` | `"sha-abc1234"` |
+
+**Transformation Logic**:
+```bash
+VERSION="${{ steps.meta.outputs.version }}"
+
+# Check if version contains dots (semver format)
+if [[ "$VERSION" != *"."* ]]; then
+  # No dots = branch name or short format
+  # Transform to pre-release semver: 0.0.0-<branch>.<short-sha>
+  SHORT_SHA="$(echo ${{ github.sha }} | cut -c1-7)"
+  VERSION="0.0.0-${VERSION}.${SHORT_SHA}"
+fi
+
+# VERSION now guaranteed to be semver-compliant:
+# - Tags: 1.2.3 (already semver)
+# - Branches: 0.0.0-main.abc1234 (pre-release semver)
+```
+
+**Validation**: Helm CLI validates semver format during `helm package`. Invalid formats cause immediate failure with clear error message.
+
+---
+
+## Integration Points
+
+### Input Dependencies
+
+1. **`steps.meta.outputs.version`** (from `docker/metadata-action@v5`):
+   - Type: string
+   - Format: Varies by git event (semver, branch name, sha-<hash>)
+   - Used for: Chart version derivation
+
+2. **`github.event_name`** (from GitHub Actions context):
+   - Type: string
+   - Values: `push`, `pull_request`, `workflow_dispatch`, etc.
+   - Used for: Conditional execution (only `push`)
+
+3. **`github.sha`** (from GitHub Actions context):
+   - Type: string (40-char hex)
+   - Used for: Short SHA extraction for branch builds
+
+4. **`secrets.GITHUB_TOKEN`** (from GitHub Actions secrets):
+   - Type: string (JWT token)
+   - Permissions required: `packages:write`
+   - Used for: GHCR authentication
+
+5. **`env.REGISTRY`** (from workflow env):
+   - Type: string
+   - Value: `ghcr.io`
+   - Used for: OCI registry URL construction
+
+6. **`env.IMAGE_NAME`** (from workflow env):
+   - Type: string
+   - Value: `${{ github.repository }}` (e.g., `infobloxopen/ib-schema-registry`)
+   - Used for: Repository path construction
+
+### Output Artifacts
+
+1. **OCI Helm Chart**:
+   - Location: `oci://ghcr.io/infobloxopen/ib-schema-registry:<version>`
+   - Media Type: `application/vnd.cncf.helm.chart.content.v1.tar+gzip`
+   - Size: ~5-15 KB
+   - Availability: Immediate (no index generation delay)
+
+2. **Workflow Logs**:
+   - Chart version used
+   - Transformation details (if branch build)
+   - Chart.yaml field values
+   - Chart file size
+   - OCI push confirmation
+   - Install command example
+
+### Side Effects
+
+1. **Chart.yaml Modification**: Temporary modification in workflow working directory (discarded after job completion)
+2. **GHCR Registry State**: New OCI artifact created or existing tag overwritten (immutable digest)
+3. **Workflow Execution Time**: Adds ~10-20 seconds to workflow (packaging + push)
+
+---
+
+## Performance Contract
+
+### Time Budget
+
+- **Chart.yaml sed replacements**: <1 second
+- **helm package**: 1-3 seconds (chart is small, ~10-15 files)
+- **helm registry login**: 1-2 seconds (OIDC token exchange)
+- **helm push**: 5-15 seconds (depends on network speed; chart size ~5-15 KB)
+- **Total added time**: 10-25 seconds (within 30-second requirement from spec)
+
+### Resource Usage
+
+- **Disk Space**: <1 MB (chart tarball)
+- **Network Bandwidth**: <20 MB (chart upload + registry metadata)
+- **Memory**: Negligible (Helm CLI operations)
+- **CPU**: Minimal (gzip compression, network I/O bound)
+
+---
+
+## Testing Contract
+
+### Manual Testing
+
+```bash
+# 1. Local chart validation (before workflow integration)
+cd helm/ib-schema-registry
+helm lint .
+helm package .
+helm install test-local ./ib-schema-registry-0.1.0.tgz --dry-run
+
+# 2. Simulate version transformation
+VERSION="main"
+SHORT_SHA="abc1234"
+if [[ "$VERSION" != *"."* ]]; then
+  VERSION="0.0.0-${VERSION}.${SHORT_SHA}"
+fi
+echo "Chart version would be: $VERSION"
+
+# 3. Test Chart.yaml sed replacements
+VERSION="1.2.3"
+sed "s/^version:.*/version: ${VERSION}/" Chart.yaml
+sed "s/^appVersion:.*/appVersion: \"${VERSION}\"/" Chart.yaml
+```
+
+### CI Testing
+
+1. **Workflow Validation**: Push commit to branch, verify chart published with `0.0.0-<branch>.<sha>` format
+2. **Tag Validation**: Push git tag `v1.2.3-test`, verify chart published with version `1.2.3-test`
+3. **PR Validation**: Create PR, verify chart publishing step skipped (no chart artifact created)
+4. **Error Handling**: Temporarily break Chart.yaml syntax, verify workflow continues with warning
+
+### Acceptance Criteria
+
+- [ ] Chart successfully publishes on push to main branch
+- [ ] Chart version matches Docker image version exactly
+- [ ] Chart can be pulled: `helm pull oci://ghcr.io/infobloxopen/ib-schema-registry --version <version>`
+- [ ] Chart can be installed: `helm install test oci://... --version <version>`
+- [ ] Workflow completes even if chart publishing fails
+- [ ] Workflow logs show clear version transformation details
+- [ ] PR builds do NOT publish charts
+- [ ] Execution time adds <30 seconds to workflow
+
+---
+
+## Backward Compatibility
+
+### Existing Workflows
+
+- **Manual helm-package**: Makefile targets remain functional for local development
+- **Manual helm-push**: Users can still manually publish charts using existing Makefile commands
+- **Chart structure**: No changes to chart templates, values.yaml, or file structure
+- **Chart consumers**: No breaking changes (appVersion format may change from `0.1.0` placeholder to actual versions)
+
+### Git Repository
+
+- **No committed changes**: Chart.yaml version fields remain at placeholder values (e.g., `0.1.0`) in git
+- **No .gitignore changes**: Chart tarballs not committed (already ignored)
+- **No branch pollution**: Workflow modifications only in main branch via PR
+
+---
+
+## Security Contract
+
+### Credential Handling
+
+- **GITHUB_TOKEN**: Passed via stdin to `helm registry login` (not visible in process list)
+- **No credential logging**: Token never echoed to workflow logs
+- **Scoped permissions**: Token has `packages:write` only for this repository
+
+### Supply Chain
+
+- **Immutable artifacts**: Once published with tag `X.Y.Z`, digest cannot be changed
+- **Audit trail**: GHCR logs all push operations with timestamp, actor, and source IP
+- **Provenance**: Chart package includes Chart.yaml with version/appVersion metadata
+
+### Access Control
+
+- **Push permissions**: Only workflows with `packages:write` permission can publish
+- **Read permissions**: Public if repository is public, authenticated otherwise (follows repository visibility)
+- **Tag overwrite**: Same tag can be overwritten (GHCR allows this; consider documenting immutability policy)
+
+---
+
+## Monitoring & Observability
+
+### Success Indicators
+
+- Workflow log contains: `🚀 Published chart: oci://ghcr.io/infobloxopen/ib-schema-registry:<version>`
+- GHCR UI shows new chart artifact with correct version tag
+- Chart is pullable via `helm pull` command
+
+### Failure Indicators
+
+- Workflow log contains: `::error::` or `::warning::` annotations
+- Step status shows yellow (warning) or red (error) icon in GitHub UI
+- No new chart artifact appears in GHCR for that workflow run
+
+### Metrics (Optional Future Enhancement)
+
+- Chart publish success rate (percentage of successful pushes)
+- Chart publish latency (time from workflow start to chart availability)
+- Chart download count (from GHCR analytics)
+
+---
+
+## Rollout Strategy
+
+### Phase 1: Initial Implementation
+- Add workflow step to build-image.yml
+- Test with branch builds (non-production)
+- Validate version transformation logic
+
+### Phase 2: Tag Build Validation
+- Push test tag (e.g., `v0.0.1-test`)
+- Verify chart version matches
+- Validate installation from published chart
+
+### Phase 3: Production Rollout
+- Merge to main branch
+- Monitor first few production builds
+- Update documentation with OCI installation instructions
+
+### Rollback Plan
+- Remove workflow step via PR revert
+- Existing charts remain in GHCR (immutable)
+- Manual publishing returns as fallback
+
+---
+
+## Summary
+
+This contract defines the integration of Helm chart publishing into the CI/CD workflow with:
+
+- **Clear pre/post-conditions** for successful execution
+- **Version synchronization guarantee** via shared metadata-action output
+- **Error handling strategy** (continue-on-error for supplementary artifact)
+- **Performance budget** (<30 seconds added time)
+- **Security controls** (credential handling, access control)
+- **Testing criteria** for acceptance validation
+
+**Next Steps**: Implement workflow modification, test with branch builds, validate with tag push, update documentation.

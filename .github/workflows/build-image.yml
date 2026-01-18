@@ -290,8 +290,74 @@ jobs:
             build/sbom/sbom-amd64.spdx.json
             build/sbom/sbom-arm64.cyclonedx.json
             build/sbom/sbom-arm64.spdx.json
+            build/sbom/sbom-helm-chart.spdx.json
           retention-days: 90
           if-no-files-found: error
+      
+      - name: Package and publish Helm chart
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          
+          # Extract version from metadata action
+          VERSION="${{ steps.meta.outputs.version }}"
+          echo "📦 Packaging Helm chart with version: ${VERSION}"
+          
+          # Transform branch builds to pre-release format
+          # If VERSION contains no dots, assume it's a branch name (e.g., "main")
+          if [[ "$VERSION" != *"."* ]]; then
+            SHORT_SHA="$(echo ${{ github.sha }} | cut -c1-7)"
+            VERSION="0.0.0-${VERSION}.${SHORT_SHA}"
+            echo "🔄 Transformed branch build version to: ${VERSION}"
+          fi
+          
+          # Update Chart.yaml dynamically (build-time only, not committed)
+          sed -i "s/^version:.*/version: ${VERSION}/" helm/ib-schema-registry/Chart.yaml
+          sed -i "s/^appVersion:.*/appVersion: \"${VERSION}\"/" helm/ib-schema-registry/Chart.yaml
+          
+          # Verify updates
+          echo "📄 Chart.yaml version fields:"
+          grep "^version:" helm/ib-schema-registry/Chart.yaml
+          grep "^appVersion:" helm/ib-schema-registry/Chart.yaml
+          
+          # Package chart
+          helm package helm/ib-schema-registry/
+          CHART_FILE="ib-schema-registry-${VERSION}.tgz"
+          
+          if [ ! -f "${CHART_FILE}" ]; then
+            echo "::error::Chart file not found: ${CHART_FILE}"
+            exit 1
+          fi
+          
+          echo "✅ Chart packaged: ${CHART_FILE} ($(stat -f%z "${CHART_FILE}" 2>/dev/null || stat -c%s "${CHART_FILE}") bytes)"
+          
+          # Generate SBOM for Helm chart (main branch only)
+          if [ "${{ github.event_name }}" == "push" ] && [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            echo "📋 Generating SBOM for Helm chart..."
+            mkdir -p build/sbom
+            
+            # Use Syft to scan the Helm chart package
+            syft "${CHART_FILE}" \
+              --output spdx-json=build/sbom/sbom-helm-chart.spdx.json
+            
+            # Validate SBOM
+            jq empty build/sbom/sbom-helm-chart.spdx.json
+            echo "✅ Helm chart SBOM generated and validated"
+          fi
+          
+          # Push chart only if not a pull request (same as Docker image)
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "🔐 Authenticating to GHCR..."
+            echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
+            
+            echo "📤 Pushing chart to OCI registry..."
+            helm push "${CHART_FILE}" oci://${{ env.REGISTRY }}/${{ github.repository_owner }}
+            
+            echo "🚀 Published chart: oci://${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSION}"
+            echo "📥 Install command: helm install my-registry oci://${{ env.REGISTRY }}/${{ env.IMAGE_NAME }} --version ${VERSION}"
+          else
+            echo "⏭️  Skipping chart push (pull request build - chart validated but not published)"
+          fi
 
   test:
     needs: build

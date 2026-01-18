@@ -14,10 +14,24 @@ Helm chart for deploying Confluent Schema Registry on Kubernetes with multi-arch
 ## Prerequisites
 
 - Kubernetes 1.23+
-- Helm 3.8+
+- Helm 3.8+ (OCI registry support)
 - Kafka cluster (Confluent, Apache Kafka, Redpanda, etc.)
 
 ## Quick Start
+
+### Install from OCI Registry
+
+```bash
+# Install stable release
+helm install schema-registry oci://ghcr.io/infobloxopen/ib-schema-registry \
+  --version 1.2.3 \
+  --set config.kafkaBootstrapServers="kafka:9092"
+
+# Install development build
+helm install schema-registry-dev oci://ghcr.io/infobloxopen/ib-schema-registry \
+  --version 0.0.0-main.abc1234 \
+  --set config.kafkaBootstrapServers="kafka:9092"
+```
 
 ### Install from Local Chart
 
@@ -29,6 +43,30 @@ cd ib-schema-registry
 # Install chart
 helm install schema-registry ./helm/ib-schema-registry \
   --set config.kafkaBootstrapServers="kafka:9092"
+```
+
+### Chart Versioning
+
+**Stable Releases**: Charts are automatically published when git tags are pushed
+- Git tag `v1.2.3` → Helm chart version `1.2.3`
+- Chart version synchronized with Docker image version
+- Example: `helm install ... oci://ghcr.io/infobloxopen/ib-schema-registry --version 1.2.3`
+
+**Development Builds**: Charts published for every commit to main branch
+- Commit SHA `abc1234...` → Chart version `0.0.0-main.abc1234` (7-char SHA)
+- Pre-release semver format ensures development builds sort before stable releases
+- Use for testing unreleased features
+- Example: `helm install ... oci://ghcr.io/infobloxopen/ib-schema-registry --version 0.0.0-main.abc1234`
+
+**List Available Versions**:
+```bash
+# Search for charts (requires adding repo first)
+helm repo add ib-schema-registry oci://ghcr.io/infobloxopen
+helm search repo ib-schema-registry --versions
+
+# Or pull specific version directly
+helm pull oci://ghcr.io/infobloxopen/ib-schema-registry --version 1.2.3
+tar -xzf ib-schema-registry-1.2.3.tgz
 ```
 
 ### Verify Installation
@@ -67,6 +105,8 @@ helm install schema-registry ./helm/ib-schema-registry \
 ```
 
 #### Custom Image
+
+> **Note**: By default, the chart uses the `appVersion` field from Chart.yaml as the image tag. The `appVersion` is automatically synchronized with the Docker image version during CI/CD builds. Only override `image.tag` if you need to use a different version than the chart's default.
 
 ```bash
 helm install schema-registry ./helm/ib-schema-registry \

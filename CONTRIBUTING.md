@@ -335,12 +335,20 @@ Example: `7.6.1+infoblox.1`
 
 ### Creating Release
 
+**Releases are automated via CI/CD**. When you push a git tag, the workflow automatically:
+1. Builds multi-architecture Docker images
+2. Pushes images to GHCR with version tags
+3. Generates and attests SBOMs
+4. **Packages and publishes Helm chart to GHCR OCI registry**
+
+**Steps to Create Release**:
+
 1. **Update Submodule** (if new upstream version)
    ```bash
    make submodule-update
    ```
 
-2. **Build and Test**
+2. **Build and Test Locally**
    ```bash
    make clean
    make buildx
@@ -349,13 +357,41 @@ Example: `7.6.1+infoblox.1`
 
 3. **Tag Release**
    ```bash
+   # Tag format: v<version>
    git tag -a v7.6.1+infoblox.1 -m "Release 7.6.1+infoblox.1"
    git push origin v7.6.1+infoblox.1
    ```
 
-4. **CI Automatic Build**
-   - GitHub Actions builds multi-arch image
-   - Pushes to ghcr.io with version tag
+4. **CI Automatic Build and Publishing**
+   - GitHub Actions builds multi-arch Docker image
+   - Pushes Docker image to `ghcr.io/infobloxopen/ib-schema-registry:7.6.1+infoblox.1`
+   - **Publishes Helm chart to `oci://ghcr.io/infobloxopen/ib-schema-registry` with version `7.6.1+infoblox.1`**
+   - Chart version automatically synchronized with Docker image version
+
+5. **Verify Release**
+   ```bash
+   # Verify Docker image
+   docker pull ghcr.io/infobloxopen/ib-schema-registry:7.6.1+infoblox.1
+   
+   # Verify Helm chart
+   helm pull oci://ghcr.io/infobloxopen/ib-schema-registry --version 7.6.1+infoblox.1
+   
+   # Verify provenance attestations
+   cosign verify-attestation --type slsaprovenance \
+     --certificate-identity-regexp '^https://github.com/infobloxopen/ib-schema-registry/' \
+     --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+     ghcr.io/infobloxopen/ib-schema-registry:7.6.1+infoblox.1
+   ```
+
+### Development Builds
+
+**Every commit to main branch automatically publishes**:
+- Docker image: `ghcr.io/infobloxopen/ib-schema-registry:sha-<short-sha>`
+- Helm chart: `oci://ghcr.io/infobloxopen/ib-schema-registry:0.0.0-main.<short-sha>`
+
+Development chart versions use pre-release format (`0.0.0-*`) to ensure they sort before stable releases.
+
+**Pull Requests**: Docker images built but not pushed (nor are Helm charts published). This prevents registry clutter.
 
 ## Common Development Tasks
 
