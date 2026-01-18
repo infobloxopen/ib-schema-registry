@@ -41,6 +41,12 @@ jobs:
           # Make version script executable
           chmod +x scripts/version.sh scripts/validate-version.sh
           
+          # Fetch tags from upstream submodule (required for version computation)
+          echo "📦 Fetching upstream submodule tags..."
+          cd upstream/schema-registry
+          git fetch --tags
+          cd ../..
+          
           # Compute version using version script
           # New versioning scheme: <upstream>-ib.<suffix>.<sha>[.dirty]
           # - upstream: Upstream Confluent Schema Registry version (e.g., 8.1.1)
