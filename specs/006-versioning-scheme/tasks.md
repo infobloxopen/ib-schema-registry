@@ -170,67 +170,67 @@ Tasks are organized by phase and must be executed in order within each phase. Ta
 ## Phase 3: GitHub Actions Workflow Updates (CI/CD Integration)
 
 ### T017: Add version computation step to workflow
-- [ ] Add step that runs scripts/version.sh --format=github
-- [ ] Ensure script is executable (chmod)
-- [ ] Capture outputs: VERSION, UPSTREAM_VERSION, SHA, DIRTY, TAG
+- [X] Add step that runs scripts/version.sh --format=github
+- [X] Ensure script is executable (chmod)
+- [X] Capture outputs: VERSION, UPSTREAM_VERSION, SHA, DIRTY, TAG
 - **Files**: `.github/workflows/build-image.yml`
 - **Dependencies**: T007
 - **Validation**: Step produces correct outputs
 
 ### T018: Update docker/metadata-action configuration
-- [ ] Replace tag generation with computed TAG
-- [ ] Update latest tag logic
-- [ ] Update OCI labels with new version fields
-- [ ] Add org.infoblox.upstream.version label
+- [X] Replace tag generation with computed TAG
+- [X] Update latest tag logic
+- [X] Update OCI labels with new version fields
+- [X] Add org.infoblox.upstream.version label
 - **Files**: `.github/workflows/build-image.yml`
 - **Dependencies**: T017
 - **Validation**: Metadata action uses computed version
 
 ### T019: Remove old version extraction step
-- [ ] Delete "Get upstream version" step
-- [ ] Remove upstream_version and local_version outputs
-- [ ] Update any references to old step outputs
+- [X] Delete "Get upstream version" step
+- [X] Remove upstream_version and local_version outputs
+- [X] Update any references to old step outputs
 - **Files**: `.github/workflows/build-image.yml`
 - **Dependencies**: T018
 - **Validation**: Old step completely removed
 
 ### T020: Update Docker build step
-- [ ] Update VERSION build arg to use computed TAG
-- [ ] Update UPSTREAM_VERSION build arg
-- [ ] Update REVISION build arg to use computed SHA
+- [X] Update VERSION build arg to use computed TAG
+- [X] Update UPSTREAM_VERSION build arg
+- [X] Update REVISION build arg to use computed SHA
 - **Files**: `.github/workflows/build-image.yml`
 - **Dependencies**: T017
 - **Validation**: Build uses correct version args
 
 ### T021: Update Helm chart packaging step
-- [ ] Use computed TAG for Chart.yaml version field
-- [ ] Use UPSTREAM_VERSION for appVersion field
-- [ ] Update sed commands to use new version values
-- [ ] Add comment explaining version vs appVersion
+- [X] Use computed TAG for Chart.yaml version field
+- [X] Use UPSTREAM_VERSION for appVersion field
+- [X] Update sed commands to use new version values
+- [X] Add comment explaining version vs appVersion
 - **Files**: `.github/workflows/build-image.yml`
 - **Dependencies**: T017
 - **Validation**: Chart uses correct versions
 
 ### T022: Remove branch name transformation logic
-- [ ] Delete 0.0.0-${VERSION} transformation code
-- [ ] Remove SHORT_SHA extraction (now in version script)
-- [ ] Simplify Helm chart version logic
+- [X] Delete 0.0.0-${VERSION} transformation code
+- [X] Remove SHORT_SHA extraction (now in version script)
+- [X] Simplify Helm chart version logic
 - **Files**: `.github/workflows/build-image.yml`
 - **Dependencies**: T021
 - **Validation**: Transformation logic removed
 
 ### T023: Add version validation step [P]
-- [ ] Add step that runs validate-version.sh
-- [ ] Validate computed TAG format
-- [ ] Fail build if validation fails
+- [X] Add step that runs validate-version.sh
+- [X] Validate computed TAG format
+- [X] Fail build if validation fails
 - **Files**: `.github/workflows/build-image.yml`
 - **Dependencies**: T010, T017
 - **Validation**: Validation step exists and works
 
 ### T024: Update workflow comments and documentation [P]
-- [ ] Add comments explaining new version scheme
-- [ ] Document why + is avoided (OCI compatibility)
-- [ ] Link to versioning documentation
+- [X] Add comments explaining new version scheme
+- [X] Document why + is avoided (OCI compatibility)
+- [X] Link to versioning documentation
 - **Files**: `.github/workflows/build-image.yml`
 - **Dependencies**: T017-T023
 - **Validation**: Comments added and accurate

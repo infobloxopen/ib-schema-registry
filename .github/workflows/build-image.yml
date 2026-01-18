@@ -35,6 +35,51 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Compute version
+        id: version
+        run: |
+          # Make version script executable
+          chmod +x scripts/version.sh scripts/validate-version.sh
+          
+          # Compute version using version script
+          # New versioning scheme: <upstream>-ib.<suffix>.<sha>[.dirty]
+          # - upstream: Upstream Confluent Schema Registry version (e.g., 8.1.1)
+          # - suffix: Release number (e.g., 1) OR branch name (e.g., main, feature-auth)
+          # - sha: Short Git commit SHA (7 characters)
+          # - .dirty: Optional suffix for uncommitted changes
+          # 
+          # Why not use + (build metadata)?
+          # - OCI registries (GHCR, Docker Hub) don't reliably support + in tags
+          # - GHCR URL-encodes + to %2B, causing confusion and errors
+          # - SemVer prerelease (-) is universally supported
+          #
+          # Examples:
+          # - Release tag v8.1.1-ib.1 → 8.1.1-ib.1.abc1234
+          # - Main branch → 8.1.1-ib.main.abc1234
+          # - Feature branch → 8.1.1-ib.feature-auth.abc1234
+          #
+          # See: specs/006-versioning-scheme/spec.md for complete specification
+          
+          echo "🔢 Computing version..."
+          ./scripts/version.sh --format=github --quiet >> $GITHUB_OUTPUT
+          
+          # Display computed version
+          echo "✅ Version computed successfully"
+          echo ""
+          echo "Version Information:"
+          ./scripts/version.sh --format=make | sed 's/^/  /'
+          
+          # Validate version format
+          echo ""
+          echo "🔍 Validating version format..."
+          TAG=$(grep '^TAG=' $GITHUB_OUTPUT | cut -d'=' -f2)
+          if ! ./scripts/validate-version.sh "$TAG" > /dev/null 2>&1; then
+            echo "::error::Generated invalid version: $TAG"
+            ./scripts/validate-version.sh "$TAG"
+            exit 1
+          fi
+          echo "✅ Version format valid"
+
       - name: Log in to GitHub Container Registry
         if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
@@ -49,21 +94,12 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=sha
+            type=raw,value=${{ steps.version.outputs.TAG }}
             type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Get upstream version
-        id: version
-        run: |
-          cd upstream/schema-registry
-          UPSTREAM_VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "dev")
-          echo "upstream_version=${UPSTREAM_VERSION}" >> $GITHUB_OUTPUT
-          echo "local_version=${UPSTREAM_VERSION}+infoblox.1" >> $GITHUB_OUTPUT
+          labels: |
+            org.opencontainers.image.version=${{ steps.version.outputs.VERSION }}
+            org.opencontainers.image.revision=${{ steps.version.outputs.SHA }}
+            org.infoblox.upstream.version=${{ steps.version.outputs.UPSTREAM_VERSION }}
 
       - name: Build and push Docker image
         id: build
@@ -77,8 +113,9 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           provenance: ${{ github.event_name != 'pull_request' && 'mode=max' || 'false' }}  # Skip provenance for PRs
           build-args: |
-            VERSION=${{ steps.version.outputs.local_version }}
-            REVISION=${{ github.sha }}
+            VERSION=${{ steps.version.outputs.TAG }}
+            UPSTREAM_VERSION=${{ steps.version.outputs.UPSTREAM_VERSION }}
+            REVISION=${{ steps.version.outputs.SHA }}
             CREATED=${{ steps.meta.outputs.created }}
             SOURCE_REPOSITORY=https://github.com/${{ github.repository }}
             SOURCE_COMMIT=${{ github.sha }}
@@ -299,21 +336,20 @@ jobs:
         run: |
           set -euo pipefail
           
-          # Extract version from metadata action
-          VERSION="${{ steps.meta.outputs.version }}"
-          echo "📦 Packaging Helm chart with version: ${VERSION}"
+          # Use computed TAG for chart version (full version with SHA)
+          TAG="${{ steps.version.outputs.TAG }}"
+          # Use upstream version for appVersion (shows user-facing app version)
+          UPSTREAM_VERSION="${{ steps.version.outputs.UPSTREAM_VERSION }}"
           
-          # Transform branch builds to pre-release format
-          # If VERSION contains no dots, assume it's a branch name (e.g., "main")
-          if [[ "$VERSION" != *"."* ]]; then
-            SHORT_SHA="$(echo ${{ github.sha }} | cut -c1-7)"
-            VERSION="0.0.0-${VERSION}.${SHORT_SHA}"
-            echo "🔄 Transformed branch build version to: ${VERSION}"
-          fi
+          echo "📦 Packaging Helm chart..."
+          echo "  Chart version: ${TAG}"
+          echo "  App version: ${UPSTREAM_VERSION}"
           
           # Update Chart.yaml dynamically (build-time only, not committed)
-          sed -i "s/^version:.*/version: ${VERSION}/" helm/ib-schema-registry/Chart.yaml
-          sed -i "s/^appVersion:.*/appVersion: \"${VERSION}\"/" helm/ib-schema-registry/Chart.yaml
+          # Chart version = full TAG with commit SHA (identifies chart artifact)
+          # App version = upstream only (shows application version clearly)
+          sed -i "s/^version:.*/version: ${TAG}/" helm/ib-schema-registry/Chart.yaml
+          sed -i "s/^appVersion:.*/appVersion: \"${UPSTREAM_VERSION}\"/" helm/ib-schema-registry/Chart.yaml
           
           # Verify updates
           echo "📄 Chart.yaml version fields:"
@@ -322,7 +358,7 @@ jobs:
           
           # Package chart
           helm package helm/ib-schema-registry/
-          CHART_FILE="ib-schema-registry-${VERSION}.tgz"
+          CHART_FILE="ib-schema-registry-${TAG}.tgz"
           
           if [ ! -f "${CHART_FILE}" ]; then
             echo "::error::Chart file not found: ${CHART_FILE}"
@@ -353,8 +389,8 @@ jobs:
             echo "📤 Pushing chart to OCI registry..."
             helm push "${CHART_FILE}" oci://${{ env.REGISTRY }}/${{ github.repository_owner }}
             
-            echo "🚀 Published chart: oci://${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSION}"
-            echo "📥 Install command: helm install my-registry oci://${{ env.REGISTRY }}/${{ env.IMAGE_NAME }} --version ${VERSION}"
+            echo "🚀 Published chart: oci://${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${TAG}"
+            echo "📥 Install command: helm install my-registry oci://${{ env.REGISTRY }}/${{ env.IMAGE_NAME }} --version ${TAG}"
           else
             echo "⏭️  Skipping chart push (pull request build - chart validated but not published)"
           fi
