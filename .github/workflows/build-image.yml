@@ -87,7 +87,6 @@ jobs:
           echo "✅ Version format valid"
 
       - name: Log in to GitHub Container Registry
-        if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -114,7 +113,7 @@ jobs:
         with:
           context: .
           platforms: linux/amd64,linux/arm64
-          push: ${{ github.event_name != 'pull_request' }}
+          push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           provenance: ${{ github.event_name != 'pull_request' && 'mode=max' || 'false' }}  # Skip provenance for PRs
@@ -387,24 +386,19 @@ jobs:
             echo "✅ Helm chart SBOM generated and validated"
           fi
           
-          # Push chart only if not a pull request (same as Docker image)
-          if [ "${{ github.event_name }}" != "pull_request" ]; then
-            echo "🔐 Authenticating to GHCR..."
-            echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
-            
-            echo "📤 Pushing chart to OCI registry..."
-            helm push "${CHART_FILE}" oci://${{ env.REGISTRY }}/${{ github.repository_owner }}
-            
-            echo "🚀 Published chart: oci://${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${TAG}"
-            echo "📥 Install command: helm install my-registry oci://${{ env.REGISTRY }}/${{ env.IMAGE_NAME }} --version ${TAG}"
-          else
-            echo "⏭️  Skipping chart push (pull request build - chart validated but not published)"
-          fi
+          # Push chart to GHCR (enabled for all builds including PRs)
+          echo "🔐 Authenticating to GHCR..."
+          echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
+          
+          echo "📤 Pushing chart to OCI registry..."
+          helm push "${CHART_FILE}" oci://${{ env.REGISTRY }}/${{ github.repository_owner }}
+          
+          echo "🚀 Published chart: oci://${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${TAG}"
+          echo "📥 Install command: helm install my-registry oci://${{ env.REGISTRY }}/${{ env.IMAGE_NAME }} --version ${TAG}"
 
   test:
     needs: build
     runs-on: ubuntu-latest
-    if: github.event_name != 'pull_request'
     
     steps:
       - name: Checkout repository
