@@ -1,0 +1,184 @@
+# Contract: JMX Exporter Configuration
+
+**Format**: YAML  
+**Consumer**: Prometheus JMX Exporter (javaagent)  
+**Location**: ConfigMap `{{ .Release.Name }}-jmx-exporter` → mounted at `/opt/jmx-exporter/config.yaml`
+
+## Default Configuration
+
+```yaml
+---
+# Lowercase output for Prometheus naming conventions
+lowercaseOutputName: true
+lowercaseOutputLabelNames: true
+
+# Whitelist: Only export Schema Registry and essential JVM MBeans
+whitelistObjectNames:
+  # Schema Registry application metrics
+  - "kafka.schema.registry:type=jetty-metrics,*"
+  - "kafka.schema.registry:type=jersey-metrics,*"
+  - "kafka.schema.registry:type=master-slave-role,*"
+  
+  # Essential JVM metrics
+  - "java.lang:type=Memory"
+  - "java.lang:type=GarbageCollector,*"
+  - "java.lang:type=Threading"
+  - "java.lang:type=OperatingSystem"
+
+# Transformation rules: JMX MBean -> Prometheus metric
+rules:
+  # Jetty HTTP server metrics
+  - pattern: 'kafka.schema.registry<type=jetty-metrics><>([^:]+):'
+    name: kafka_schema_registry_jetty_$1
+    help: "Jetty HTTP server metric: $1"
+    type: GAUGE
+  
+  # Jersey REST API endpoint metrics
+  - pattern: 'kafka.schema.registry<type=jersey-metrics, path=(.+)><>([^:]+):'
+    name: kafka_schema_registry_jersey_$2
+    help: "Jersey REST API metric: $2"
+    type: GAUGE
+    labels:
+      path: "$1"
+  
+  # Master/slave role indicator
+  - pattern: 'kafka.schema.registry<type=master-slave-role><>(.+):'
+    name: kafka_schema_registry_master_slave_$1
+    help: "Schema Registry cluster role metric"
+    type: GAUGE
+  
+  # JVM Memory
+  - pattern: 'java.lang<type=Memory><>(.+):'
+    name: jvm_memory_$1
+    help: "JVM memory metric"
+    type: GAUGE
+  
+  # JVM Garbage Collection
+  - pattern: 'java.lang<type=GarbageCollector, name=(.+)><>(.+):'
+    name: jvm_gc_$2
+    labels:
+      gc: "$1"
+    help: "JVM garbage collector metric"
+    type: GAUGE
+  
+  # JVM Threading
+  - pattern: 'java.lang<type=Threading><>(.+):'
+    name: jvm_threads_$1
+    help: "JVM thread metric"
+    type: GAUGE
+  
+  # JVM Operating System
+  - pattern: 'java.lang<type=OperatingSystem><>(.+):'
+    name: jvm_os_$1
+    help: "JVM operating system metric"
+    type: GAUGE
+```
+
+## Contract Guarantees
+
+### Stability
+
+- **Backward compatibility**: Metric names and labels will remain stable across patch versions
+- **Breaking changes**: Metric renames or label changes will be documented in CHANGELOG with migration guide
+- **Deprecation**: Deprecated metrics will be marked in HELP text and maintained for one minor version
+
+### Performance
+
+- **Scrape duration**: Configuration designed to complete scrape in <500ms
+- **Metric cardinality**: Whitelist prevents metric explosion (estimated 50-100 metrics per pod)
+- **Memory overhead**: Pattern matching optimized to use <10MB heap
+
+### Format Compliance
+
+- **Prometheus text format**: Output conforms to https://prometheus.io/docs/instrumenting/exposition_formats/
+- **Metric naming**: All names match `[a-zA-Z_:][a-zA-Z0-9_:]*`
+- **Label naming**: All labels match `[a-zA-Z_][a-zA-Z0-9_]*`
+- **Help text**: All metrics include HELP line with human-readable description
+- **Type declarations**: All metrics declare TYPE (GAUGE/COUNTER/HISTOGRAM/SUMMARY)
+
+## Customization
+
+Users can override this configuration by providing `metrics.config` in Helm values:
+
+```yaml
+metrics:
+  enabled: true
+  config: |
+    # Custom configuration
+    lowercaseOutputName: false
+    whitelistObjectNames:
+      - "kafka.schema.registry:*"
+    rules:
+      - pattern: '.*'
+        name: custom_metric_$1
+```
+
+**Note**: Custom configurations replace the entire default config (not merged).
+
+## Schema Registry MBean Reference
+
+### kafka.schema.registry:type=jetty-metrics
+
+| Attribute | Type | Unit | Description |
+|---|---|---|---|
+| requests-total | long | count | Total HTTP requests served |
+| active-connections | int | count | Current active connections |
+| response-time-ms-mean | double | milliseconds | Mean response time |
+| response-time-ms-p50 | double | milliseconds | 50th percentile response time |
+| response-time-ms-p95 | double | milliseconds | 95th percentile response time |
+| response-time-ms-p99 | double | milliseconds | 99th percentile response time |
+
+### kafka.schema.registry:type=jersey-metrics,path=/subjects
+
+| Attribute | Type | Unit | Description |
+|---|---|---|---|
+| request-count | long | count | Total requests to this endpoint |
+| error-count | long | count | Total errors for this endpoint |
+| request-duration-ms-mean | double | milliseconds | Mean request duration |
+
+**Note**: One MBean per registered REST endpoint path
+
+### kafka.schema.registry:type=master-slave-role
+
+| Attribute | Type | Values | Description |
+|---|---|---|---|
+| master-slave-role | string | "master" \| "slave" | Current node role in cluster |
+
+## Example Output
+
+```
+# HELP kafka_schema_registry_jetty_requests_total Jetty HTTP server metric: requests-total
+# TYPE kafka_schema_registry_jetty_requests_total gauge
+kafka_schema_registry_jetty_requests_total 12345.0
+
+# HELP kafka_schema_registry_jersey_request_count Jersey REST API metric: request-count
+# TYPE kafka_schema_registry_jersey_request_count gauge
+kafka_schema_registry_jersey_request_count{path="/subjects"} 5678.0
+kafka_schema_registry_jersey_request_count{path="/config"} 123.0
+
+# HELP kafka_schema_registry_master_slave_master_slave_role Schema Registry cluster role metric
+# TYPE kafka_schema_registry_master_slave_master_slave_role gauge
+kafka_schema_registry_master_slave_master_slave_role 1.0
+
+# HELP jvm_memory_heapmemoryusage_used JVM memory metric
+# TYPE jvm_memory_heapmemoryusage_used gauge
+jvm_memory_heapmemoryusage_used 2.68435456E8
+
+# HELP jvm_gc_collectioncount JVM garbage collector metric
+# TYPE jvm_gc_collectioncount gauge
+jvm_gc_collectioncount{gc="G1 Young Generation"} 45.0
+jvm_gc_collectioncount{gc="G1 Old Generation"} 2.0
+```
+
+## Validation
+
+Configuration is validated at javaagent initialization:
+- **YAML syntax**: Must be valid YAML (parse errors cause JVM startup failure)
+- **Pattern syntax**: Regex patterns must be valid Java regex (invalid patterns logged as warnings)
+- **MBean patterns**: Invalid ObjectName patterns are silently ignored (no matching MBeans)
+
+## References
+
+- Prometheus JMX Exporter: https://github.com/prometheus/jmx_exporter
+- Prometheus exposition formats: https://prometheus.io/docs/instrumenting/exposition_formats/
+- Schema Registry JMX metrics: https://docs.confluent.io/platform/current/schema-registry/monitoring.html

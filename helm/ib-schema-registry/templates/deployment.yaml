@@ -14,6 +14,14 @@ spec:
     metadata:
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- if .Values.metrics.enabled }}
+        checksum/jmx-exporter-config: {{ include (print $.Template.BasePath "/configmap-jmx-exporter.yaml") . | sha256sum }}
+        {{- end }}
+        {{- if and .Values.metrics.enabled .Values.metrics.annotations.enabled }}
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "{{ .Values.metrics.port }}"
+        prometheus.io/path: "{{ .Values.metrics.path }}"
+        {{- end }}
         {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -40,6 +48,11 @@ spec:
             - name: http
               containerPort: 8081
               protocol: TCP
+            {{- if .Values.metrics.enabled }}
+            - name: metrics
+              containerPort: {{ .Values.metrics.port }}
+              protocol: TCP
+            {{- end }}
           env:
             - name: SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS
               value: {{ .Values.config.kafkaBootstrapServers | quote }}
@@ -51,6 +64,10 @@ spec:
               value: "http://0.0.0.0:8081"
             - name: SCHEMA_REGISTRY_OPTS
               value: "-XX:MaxRAMPercentage={{ .Values.jvm.maxRAMPercentage }} {{ join " " .Values.jvm.extraOpts }}"
+            {{- if .Values.metrics.enabled }}
+            - name: JAVA_TOOL_OPTIONS
+              value: "-javaagent:/opt/jmx-exporter/jmx_prometheus_javaagent.jar={{ .Values.metrics.port }}:/etc/jmx-exporter/config.yaml"
+            {{- end }}
           livenessProbe:
             {{- toYaml .Values.livenessProbe | nindent 12 }}
           readinessProbe:
@@ -63,12 +80,22 @@ spec:
               readOnly: true
             - name: tmp
               mountPath: /tmp
+            {{- if .Values.metrics.enabled }}
+            - name: jmx-exporter-config
+              mountPath: /etc/jmx-exporter
+              readOnly: true
+            {{- end }}
       volumes:
         - name: config
           configMap:
             name: {{ include "ib-schema-registry.fullname" . }}
         - name: tmp
           emptyDir: {}
+        {{- if .Values.metrics.enabled }}
+        - name: jmx-exporter-config
+          configMap:
+            name: {{ include "ib-schema-registry.fullname" . }}-jmx-exporter
+        {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

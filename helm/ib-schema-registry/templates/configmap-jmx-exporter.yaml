@@ -1,0 +1,83 @@
+{{- if .Values.metrics.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ib-schema-registry.fullname" . }}-jmx-exporter
+  labels:
+    {{- include "ib-schema-registry.labels" . | nindent 4 }}
+    app.kubernetes.io/component: metrics
+data:
+  config.yaml: |
+    {{- if .Values.metrics.config }}
+    {{- .Values.metrics.config | nindent 4 }}
+    {{- else }}
+    ---
+    # Default JMX Exporter configuration for Schema Registry
+    # Exports Schema Registry MBeans and essential JVM metrics
+    
+    # Lowercase output for Prometheus naming conventions
+    lowercaseOutputName: true
+    lowercaseOutputLabelNames: true
+    
+    # Whitelist: Only export Schema Registry and essential JVM MBeans
+    whitelistObjectNames:
+      # Schema Registry application metrics
+      - "kafka.schema.registry:type=jetty-metrics,*"
+      - "kafka.schema.registry:type=jersey-metrics,*"
+      - "kafka.schema.registry:type=master-slave-role,*"
+      
+      # Essential JVM metrics
+      - "java.lang:type=Memory"
+      - "java.lang:type=GarbageCollector,*"
+      - "java.lang:type=Threading"
+      - "java.lang:type=OperatingSystem"
+    
+    # Transformation rules: JMX MBean -> Prometheus metric
+    rules:
+      # Jetty HTTP server metrics
+      - pattern: 'kafka.schema.registry<type=jetty-metrics><>([^:]+):'
+        name: kafka_schema_registry_jetty_$1
+        help: "Jetty HTTP server metric: $1"
+        type: GAUGE
+      
+      # Jersey REST API endpoint metrics
+      - pattern: 'kafka.schema.registry<type=jersey-metrics, path=(.+)><>([^:]+):'
+        name: kafka_schema_registry_jersey_$2
+        help: "Jersey REST API metric: $2"
+        type: GAUGE
+        labels:
+          path: "$1"
+      
+      # Master/slave role indicator
+      - pattern: 'kafka.schema.registry<type=master-slave-role><>(.+):'
+        name: kafka_schema_registry_master_slave_$1
+        help: "Schema Registry cluster role metric"
+        type: GAUGE
+      
+      # JVM Memory
+      - pattern: 'java.lang<type=Memory><>(.+):'
+        name: jvm_memory_$1
+        help: "JVM memory metric"
+        type: GAUGE
+      
+      # JVM Garbage Collection
+      - pattern: 'java.lang<type=GarbageCollector, name=(.+)><>(.+):'
+        name: jvm_gc_$2
+        labels:
+          gc: "$1"
+        help: "JVM garbage collector metric"
+        type: GAUGE
+      
+      # JVM Threading
+      - pattern: 'java.lang<type=Threading><>(.+):'
+        name: jvm_threads_$1
+        help: "JVM thread metric"
+        type: GAUGE
+      
+      # JVM Operating System
+      - pattern: 'java.lang<type=OperatingSystem><>(.+):'
+        name: jvm_os_$1
+        help: "JVM operating system metric"
+        type: GAUGE
+    {{- end }}
+{{- end }}

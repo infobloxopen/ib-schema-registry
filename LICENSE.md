@@ -18,6 +18,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 This repository contains build tooling only. The actual Confluent Schema Registry source code is referenced via Git submodule at `upstream/schema-registry` and is subject to the [Confluent Community License](https://github.com/confluentinc/schema-registry/blob/master/LICENSE).
 
+**Additional Dependency**: Prometheus JMX Exporter (`v1.5.0`) is built from source in the container image for optional metrics export and is subject to the [Apache License 2.0](https://github.com/prometheus/jmx_exporter/blob/main/LICENSE).
+
 ### Key Restrictions
 
 The Confluent Community License Agreement **PROHIBITS**:

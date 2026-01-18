@@ -42,6 +42,56 @@ None identified. All functionality from 7.6.1 carries forward to 8.1.1.
 
 ## [Unreleased]
 
+### Added
+
+#### Prometheus JMX Metrics Export (Feature 007-jmx-prometheus-metrics)
+
+**New Capability**: Optional Prometheus metrics export for Schema Registry monitoring and observability.
+
+**Helm Configuration**:
+```yaml
+metrics:
+  enabled: true        # Enable metrics collection (default: false)
+  port: 9404          # Metrics HTTP endpoint port
+  path: /metrics      # Metrics HTTP endpoint path
+  annotations:
+    enabled: true     # Add Prometheus scrape annotations
+  config: null        # Optional: Custom JMX exporter configuration
+```
+
+**Features**:
+- ✅ **Opt-in by default**: `metrics.enabled=false` ensures zero overhead for existing deployments
+- ✅ **Schema Registry metrics**: HTTP requests (jetty), REST API endpoints (jersey), cluster role (master/slave)
+- ✅ **JVM metrics**: Memory usage, garbage collection, threading, CPU
+- ✅ **Prometheus integration**: Auto-discovery via pod annotations (`prometheus.io/scrape`)
+- ✅ **Customizable**: Override port, path, and JMX MBean patterns via Helm values
+- ✅ **Minimal overhead**: <5% CPU during scrapes, ~10MB additional heap memory
+
+**Example Usage**:
+```bash
+# Enable metrics with defaults
+helm install schema-registry oci://ghcr.io/infobloxopen/ib-schema-registry \
+  --set metrics.enabled=true
+
+# Custom port and configuration
+helm install schema-registry oci://ghcr.io/infobloxopen/ib-schema-registry \
+  --set metrics.enabled=true \
+  --set metrics.port=9999 \
+  --set-file metrics.config=./custom-jmx-config.yaml
+```
+
+**Implementation Details**:
+- Build method: Source build from git submodule `upstream/jmx_exporter` at tag `1.5.0`
+- Integration: Javaagent loaded via `JAVA_TOOL_OPTIONS` (distroless-compatible)
+- Configuration: ConfigMap-based JMX exporter config with sensible defaults
+- Architecture: In-process metrics collection (no sidecar required)
+- License: Apache 2.0 (upstream jmx_exporter)
+
+**Documentation**:
+- Helm chart README: [helm/ib-schema-registry/README.md#monitoring](helm/ib-schema-registry/README.md#monitoring)
+- Main README: [README.md#monitoring](README.md#monitoring)
+- Specification: [specs/007-jmx-prometheus-metrics/spec.md](specs/007-jmx-prometheus-metrics/spec.md)
+
 ### Changed
 
 #### Unified Versioning Scheme (Feature 006-versioning-scheme)
