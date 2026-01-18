@@ -182,23 +182,34 @@ jobs:
           echo "Generating SBOM for linux/amd64..."
           mkdir -p build/sbom
           
-          # Pull AMD64 image from registry using digest
-          IMAGE_REF="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}"
-          echo "Pulling AMD64 image: ${IMAGE_REF}"
-          docker pull --platform linux/amd64 "${IMAGE_REF}"
+          # Get platform-specific digest from manifest list
+          MANIFEST_DIGEST="${{ steps.build.outputs.digest }}"
+          IMAGE_REF="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${MANIFEST_DIGEST}"
           
-          # Get platform-specific digest for attestation
-          AMD64_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "${IMAGE_REF}" | grep -oE 'sha256:[a-f0-9]{64}' || echo "${{ steps.build.outputs.digest }}")
+          echo "Extracting AMD64 digest from manifest..."
+          AMD64_DIGEST=$(docker buildx imagetools inspect "${IMAGE_REF}" --raw | \
+            jq -r '.manifests[] | select(.platform.architecture=="amd64" and .platform.os=="linux") | .digest')
+          
+          if [ -z "$AMD64_DIGEST" ]; then
+            echo "Warning: Could not extract AMD64 digest, using manifest digest"
+            AMD64_DIGEST="${MANIFEST_DIGEST}"
+          fi
+          
           echo "amd64_digest=${AMD64_DIGEST}" >> $GITHUB_OUTPUT
           echo "AMD64 platform digest: ${AMD64_DIGEST}"
           
+          # Pull AMD64-specific image
+          AMD64_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${AMD64_DIGEST}"
+          echo "Pulling AMD64 image: ${AMD64_IMAGE}"
+          docker pull --platform linux/amd64 "${AMD64_IMAGE}"
+          
           # Generate CycloneDX SBOM (primary format)
-          syft "${IMAGE_REF}" \
+          syft "${AMD64_IMAGE}" \
             --platform linux/amd64 \
             --output cyclonedx-json=build/sbom/sbom-amd64.cyclonedx.json
           
           # Generate SPDX SBOM (compliance format)
-          syft "${IMAGE_REF}" \
+          syft "${AMD64_IMAGE}" \
             --platform linux/amd64 \
             --output spdx-json=build/sbom/sbom-amd64.spdx.json
           
@@ -214,23 +225,34 @@ jobs:
         run: |
           echo "Generating SBOM for linux/arm64..."
           
-          # Pull ARM64 image from registry using digest
-          IMAGE_REF="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}"
-          echo "Pulling ARM64 image: ${IMAGE_REF}"
-          docker pull --platform linux/arm64 "${IMAGE_REF}"
+          # Get platform-specific digest from manifest list
+          MANIFEST_DIGEST="${{ steps.build.outputs.digest }}"
+          IMAGE_REF="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${MANIFEST_DIGEST}"
           
-          # Get platform-specific digest for attestation
-          ARM64_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "${IMAGE_REF}" | grep -oE 'sha256:[a-f0-9]{64}' || echo "${{ steps.build.outputs.digest }}")
+          echo "Extracting ARM64 digest from manifest..."
+          ARM64_DIGEST=$(docker buildx imagetools inspect "${IMAGE_REF}" --raw | \
+            jq -r '.manifests[] | select(.platform.architecture=="arm64" and .platform.os=="linux") | .digest')
+          
+          if [ -z "$ARM64_DIGEST" ]; then
+            echo "Warning: Could not extract ARM64 digest, using manifest digest"
+            ARM64_DIGEST="${MANIFEST_DIGEST}"
+          fi
+          
           echo "arm64_digest=${ARM64_DIGEST}" >> $GITHUB_OUTPUT
           echo "ARM64 platform digest: ${ARM64_DIGEST}"
           
+          # Pull ARM64-specific image
+          ARM64_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${ARM64_DIGEST}"
+          echo "Pulling ARM64 image: ${ARM64_IMAGE}"
+          docker pull --platform linux/arm64 "${ARM64_IMAGE}"
+          
           # Generate CycloneDX SBOM (primary format)
-          syft "${IMAGE_REF}" \
+          syft "${ARM64_IMAGE}" \
             --platform linux/arm64 \
             --output cyclonedx-json=build/sbom/sbom-arm64.cyclonedx.json
           
           # Generate SPDX SBOM (compliance format)
-          syft "${IMAGE_REF}" \
+          syft "${ARM64_IMAGE}" \
             --platform linux/arm64 \
             --output spdx-json=build/sbom/sbom-arm64.spdx.json
           
