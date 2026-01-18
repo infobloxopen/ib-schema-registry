@@ -38,12 +38,6 @@ jobs:
       - name: Compute version
         id: version
         run: |
-          # Fetch tags from upstream submodule (required for version computation)
-          echo "📦 Fetching upstream submodule tags..."
-          cd upstream/schema-registry
-          git fetch --tags
-          cd ../..
-          
           # Compute version and cache to .version.mk file
           echo "🔢 Computing version..."
           make version-file
