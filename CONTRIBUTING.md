@@ -326,12 +326,29 @@ If upstream changes Maven build process:
 
 ### Versioning
 
-Images are versioned as:
+Images and Helm charts use a **unified versioning scheme**:
+
 ```
-<upstream-version>+infoblox.<build-number>
+<upstream>-ib.<suffix>.<sha>[.dirty]
 ```
 
-Example: `7.6.1+infoblox.1`
+**Components**:
+- `<upstream>`: Upstream Schema Registry version (e.g., `8.1.1`)
+- `-ib.`: Infoblox identifier (constant)
+- `<suffix>`: Release number (e.g., `1`, `2`) OR branch name (e.g., `main`, `feature-auth`)
+- `.<sha>`: Git commit SHA (7 characters, e.g., `.abc1234`)
+- `.dirty`: Optional suffix for uncommitted changes
+
+**Examples**:
+- Release: `8.1.1-ib.1.abc1234` (from git tag `v8.1.1-ib.1`)
+- Main branch: `8.1.1-ib.main.abc1234` (development builds)
+- Feature branch: `8.1.1-ib.feature-auth.abc1234` (PR validation)
+
+**Why This Format?**
+
+The new format uses SemVer **prerelease identifiers** (`-`) instead of build metadata (`+`) to ensure **OCI registry compatibility**. The previous format (`7.6.1+infoblox.1`) used `+`, which is not reliably supported by registries like GHCR (GitHub Container Registry URL-encodes `+` to `%2B`).
+
+See [docs/versioning.md](../docs/versioning.md) for complete versioning documentation.
 
 ### Creating Release
 
@@ -357,30 +374,37 @@ Example: `7.6.1+infoblox.1`
 
 3. **Tag Release**
    ```bash
-   # Tag format: v<version>
-   git tag -a v7.6.1+infoblox.1 -m "Release 7.6.1+infoblox.1"
-   git push origin v7.6.1+infoblox.1
+   # Tag format: v<upstream>-ib.<n>
+   # Example: First Infoblox build of upstream 8.1.1
+   git tag -a v8.1.1-ib.1 -m "Release 8.1.1-ib.1"
+   git push origin v8.1.1-ib.1
+   
+   # Example: Second Infoblox build (patch/rebuild)
+   git tag -a v8.1.1-ib.2 -m "Release 8.1.1-ib.2"
+   git push origin v8.1.1-ib.2
    ```
 
 4. **CI Automatic Build and Publishing**
-   - GitHub Actions builds multi-arch Docker image
-   - Pushes Docker image to `ghcr.io/infobloxopen/ib-schema-registry:7.6.1+infoblox.1`
-   - **Publishes Helm chart to `oci://ghcr.io/infobloxopen/ib-schema-registry` with version `7.6.1+infoblox.1`**
-   - Chart version automatically synchronized with Docker image version
+   - GitHub Actions computes version: `8.1.1-ib.1.abc1234` (includes commit SHA)
+   - Builds multi-arch Docker image
+   - Pushes Docker image to `ghcr.io/infobloxopen/ib-schema-registry:8.1.1-ib.1.abc1234`
+   - **Publishes Helm chart to `oci://ghcr.io/infobloxopen/ib-schema-registry` with version `8.1.1-ib.1.abc1234`**
+   - Chart `appVersion` set to upstream version: `8.1.1`
+   - Chart version includes full version with commit SHA for traceability
 
 5. **Verify Release**
    ```bash
-   # Verify Docker image
-   docker pull ghcr.io/infobloxopen/ib-schema-registry:7.6.1+infoblox.1
+   # Verify Docker image (replace abc1234 with actual commit SHA)
+   docker pull ghcr.io/infobloxopen/ib-schema-registry:8.1.1-ib.1.abc1234
    
    # Verify Helm chart
-   helm pull oci://ghcr.io/infobloxopen/ib-schema-registry --version 7.6.1+infoblox.1
+   helm pull oci://ghcr.io/infobloxopen/ib-schema-registry --version 8.1.1-ib.1.abc1234
    
    # Verify provenance attestations
    cosign verify-attestation --type slsaprovenance \
      --certificate-identity-regexp '^https://github.com/infobloxopen/ib-schema-registry/' \
      --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-     ghcr.io/infobloxopen/ib-schema-registry:7.6.1+infoblox.1
+     ghcr.io/infobloxopen/ib-schema-registry:8.1.1-ib.1.abc1234
    ```
 
 ### Development Builds

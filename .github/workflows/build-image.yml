@@ -35,8 +35,36 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Compute version
+        id: version
+        run: |
+          # Fetch tags from upstream submodule (required for version computation)
+          echo "📦 Fetching upstream submodule tags..."
+          cd upstream/schema-registry
+          git fetch --tags
+          cd ../..
+          
+          # Compute version and cache to .version.mk file
+          echo "🔢 Computing version..."
+          make version-file
+          
+          # Export version variables to GitHub Actions output
+          # Transform Makefile format (VAR = value) to GitHub Actions format (VAR=value)
+          sed 's/ = /=/g' .version.mk >> $GITHUB_OUTPUT
+          
+          # Display computed version
+          echo "✅ Version computed successfully"
+          echo ""
+          echo "Version Information:"
+          cat .version.mk | sed 's/^/  /'
+          
+          # Validate version format
+          echo ""
+          echo "🔍 Validating version format..."
+          make version-validate
+          echo "✅ Version format valid"
+
       - name: Log in to GitHub Container Registry
-        if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -49,21 +77,12 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=sha
+            type=raw,value=${{ steps.version.outputs.TAG }}
             type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Get upstream version
-        id: version
-        run: |
-          cd upstream/schema-registry
-          UPSTREAM_VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "dev")
-          echo "upstream_version=${UPSTREAM_VERSION}" >> $GITHUB_OUTPUT
-          echo "local_version=${UPSTREAM_VERSION}+infoblox.1" >> $GITHUB_OUTPUT
+          labels: |
+            org.opencontainers.image.version=${{ steps.version.outputs.VERSION }}
+            org.opencontainers.image.revision=${{ steps.version.outputs.SHA }}
+            org.infoblox.upstream.version=${{ steps.version.outputs.UPSTREAM_VERSION }}
 
       - name: Build and push Docker image
         id: build
@@ -72,13 +91,14 @@ jobs:
         with:
           context: .
           platforms: linux/amd64,linux/arm64
-          push: ${{ github.event_name != 'pull_request' }}
+          push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           provenance: ${{ github.event_name != 'pull_request' && 'mode=max' || 'false' }}  # Skip provenance for PRs
           build-args: |
-            VERSION=${{ steps.version.outputs.local_version }}
-            REVISION=${{ github.sha }}
+            VERSION=${{ steps.version.outputs.TAG }}
+            UPSTREAM_VERSION=${{ steps.version.outputs.UPSTREAM_VERSION }}
+            REVISION=${{ steps.version.outputs.SHA }}
             CREATED=${{ steps.meta.outputs.created }}
             SOURCE_REPOSITORY=https://github.com/${{ github.repository }}
             SOURCE_COMMIT=${{ github.sha }}
@@ -299,21 +319,20 @@ jobs:
         run: |
           set -euo pipefail
           
-          # Extract version from metadata action
-          VERSION="${{ steps.meta.outputs.version }}"
-          echo "📦 Packaging Helm chart with version: ${VERSION}"
+          # Use computed TAG for chart version (full version with SHA)
+          TAG="${{ steps.version.outputs.TAG }}"
+          # Use upstream version for appVersion (shows user-facing app version)
+          UPSTREAM_VERSION="${{ steps.version.outputs.UPSTREAM_VERSION }}"
           
-          # Transform branch builds to pre-release format
-          # If VERSION contains no dots, assume it's a branch name (e.g., "main")
-          if [[ "$VERSION" != *"."* ]]; then
-            SHORT_SHA="$(echo ${{ github.sha }} | cut -c1-7)"
-            VERSION="0.0.0-${VERSION}.${SHORT_SHA}"
-            echo "🔄 Transformed branch build version to: ${VERSION}"
-          fi
+          echo "📦 Packaging Helm chart..."
+          echo "  Chart version: ${TAG}"
+          echo "  App version: ${UPSTREAM_VERSION}"
           
           # Update Chart.yaml dynamically (build-time only, not committed)
-          sed -i "s/^version:.*/version: ${VERSION}/" helm/ib-schema-registry/Chart.yaml
-          sed -i "s/^appVersion:.*/appVersion: \"${VERSION}\"/" helm/ib-schema-registry/Chart.yaml
+          # Chart version = full TAG with commit SHA (identifies chart artifact)
+          # App version = upstream only (shows application version clearly)
+          sed -i "s/^version:.*/version: ${TAG}/" helm/ib-schema-registry/Chart.yaml
+          sed -i "s/^appVersion:.*/appVersion: \"${UPSTREAM_VERSION}\"/" helm/ib-schema-registry/Chart.yaml
           
           # Verify updates
           echo "📄 Chart.yaml version fields:"
@@ -322,7 +341,7 @@ jobs:
           
           # Package chart
           helm package helm/ib-schema-registry/
-          CHART_FILE="ib-schema-registry-${VERSION}.tgz"
+          CHART_FILE="ib-schema-registry-${TAG}.tgz"
           
           if [ ! -f "${CHART_FILE}" ]; then
             echo "::error::Chart file not found: ${CHART_FILE}"
@@ -345,28 +364,45 @@ jobs:
             echo "✅ Helm chart SBOM generated and validated"
           fi
           
-          # Push chart only if not a pull request (same as Docker image)
-          if [ "${{ github.event_name }}" != "pull_request" ]; then
-            echo "🔐 Authenticating to GHCR..."
-            echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
-            
-            echo "📤 Pushing chart to OCI registry..."
-            helm push "${CHART_FILE}" oci://${{ env.REGISTRY }}/${{ github.repository_owner }}
-            
-            echo "🚀 Published chart: oci://${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSION}"
-            echo "📥 Install command: helm install my-registry oci://${{ env.REGISTRY }}/${{ env.IMAGE_NAME }} --version ${VERSION}"
-          else
-            echo "⏭️  Skipping chart push (pull request build - chart validated but not published)"
-          fi
+          # Push chart to GHCR (enabled for all builds including PRs)
+          # Use -chart suffix to distinguish from Docker image in same registry path
+          HELM_REGISTRY="oci://${{ env.REGISTRY }}/${{ github.repository_owner }}"
+          HELM_CHART_NAME="ib-schema-registry-chart"
+          
+          echo "🔐 Authenticating to GHCR..."
+          echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
+          
+          echo "📤 Pushing chart to OCI registry..."
+          # Helm creates the chart artifact as <chart-name>:<version> in the target registry
+          helm push "${CHART_FILE}" "${HELM_REGISTRY}"
+          
+          echo "🚀 Published chart: ${HELM_REGISTRY}/${HELM_CHART_NAME}:${TAG}"
+          echo "📥 Install command: helm install my-registry ${HELM_REGISTRY}/${HELM_CHART_NAME} --version ${TAG}"
 
   test:
     needs: build
     runs-on: ubuntu-latest
-    if: github.event_name != 'pull_request'
     
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
+        
+      - name: Compute version
+        id: version
+        run: |
+          # Fetch tags from upstream submodule
+          cd upstream/schema-registry
+          git fetch --tags
+          cd ../..
+          
+          # Compute version using Makefile target
+          make version-file
+          
+          # Export TAG for image pull
+          TAG=$(grep '^TAG = ' .version.mk | cut -d' ' -f3)
+          echo "TAG=$TAG" >> $GITHUB_OUTPUT
         
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -377,8 +413,8 @@ jobs:
 
       - name: Pull and test image
         run: |
-          SHORT_SHA="$(echo ${{ github.sha }} | cut -c1-7)"
-          IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${SHORT_SHA}"
+          IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.TAG }}"
+          echo "Pulling image: $IMAGE_TAG"
           docker pull "$IMAGE_TAG"
           
           # Run smoke tests
@@ -407,30 +443,42 @@ jobs:
         with:
           version: '3.13.0'
 
+      - name: Compute version for image tag
+        id: version
+        run: |
+          # Fetch tags from upstream submodule
+          cd upstream/schema-registry
+          git fetch --tags
+          cd ../..
+          
+          # Compute version and cache to .version.mk file
+          make version-file
+          
+          # Export version variables to GitHub Actions output
+          # Transform Makefile format (VAR = value) to GitHub Actions format (VAR=value)
+          sed 's/ = /=/g' .version.mk >> $GITHUB_OUTPUT
+
       - name: Install k3d
         run: |
           curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+        
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Prepare image for E2E tests
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            # For PRs, build the image locally (not pushed to registry)
-            echo "Building image locally for PR..."
-            docker buildx build --load -t ib-schema-registry:test .
-          else
-            # For pushes, pull the built image from GHCR
-            echo "Logging in to GHCR..."
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
-            
-            SHORT_SHA="$(echo ${{ github.sha }} | cut -c1-7)"
-            IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${SHORT_SHA}"
-            echo "Pulling image: $IMAGE_TAG"
-            docker pull "$IMAGE_TAG"
-            docker tag "$IMAGE_TAG" "ib-schema-registry:test"
-          fi
+          # Pull the built image from GHCR using the computed version tag
+          IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.TAG }}"
+          echo "Pulling image: $IMAGE_TAG"
+          docker pull "$IMAGE_TAG"
+          docker tag "$IMAGE_TAG" "ib-schema-registry:test"
 
       - name: Run Helm E2E tests
         run: bash tests/e2e/test-helm-chart.sh

@@ -1,5 +1,5 @@
 apiVersion: v2
-name: ib-schema-registry
+name: ib-schema-registry-chart
 description: Confluent Schema Registry for managing Avro, Protobuf, and JSON schemas
 type: application
 version: 0.1.0

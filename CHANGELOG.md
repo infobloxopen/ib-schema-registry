@@ -42,6 +42,52 @@ None identified. All functionality from 7.6.1 carries forward to 8.1.1.
 
 ## [Unreleased]
 
+### Changed
+
+#### Unified Versioning Scheme (Feature 006-versioning-scheme)
+
+**Breaking Change**: Version format changed from `<upstream>+infoblox.<n>` to `<upstream>-ib.<suffix>.<sha>[.dirty]` for OCI registry compatibility.
+
+**What Changed:**
+- **Old format**: `7.6.1+infoblox.1` (using build metadata `+`)
+- **New format**: `8.1.1-ib.1.abc1234` (using prerelease identifiers `-`)
+
+**Why:**
+- OCI registries (GHCR, Docker Hub) do not reliably support `+` in image tags
+- GHCR URL-encodes `+` to `%2B`, causing pull errors and confusion
+- New format uses SemVer prerelease identifiers for universal compatibility
+
+**Version Components:**
+- `<upstream>`: Upstream Schema Registry version (e.g., `8.1.1`)
+- `-ib.`: Infoblox identifier (constant)
+- `<suffix>`: Release number (e.g., `1`, `2`) OR branch name (e.g., `main`, `feature-auth`)
+- `.<sha>`: Git commit SHA (7 chars) for source traceability
+- `.dirty`: Optional suffix for uncommitted changes
+
+**Examples:**
+- Release: `8.1.1-ib.1.abc1234` (from git tag `v8.1.1-ib.1`)
+- Main branch: `8.1.1-ib.main.abc1234` (development builds)
+- Feature branch: `8.1.1-ib.feature-auth.abc1234` (PR validation)
+
+**Git Tag Format Changed:**
+- Old: `v7.6.1+infoblox.1`
+- New: `v8.1.1-ib.1`
+
+**Migration:**
+- No action required for users pulling images by version
+- Contributors: Update release process to use new tag format (see [CONTRIBUTING.md](CONTRIBUTING.md#versioning))
+- CI/CD pipelines: Update image tag references to new format
+
+**Documentation:**
+- Comprehensive versioning guide: [docs/versioning.md](docs/versioning.md)
+- Updated installation examples in [README.md](README.md#versioning)
+- Updated Helm chart documentation: [helm/ib-schema-registry/README.md](helm/ib-schema-registry/README.md#chart-versioning)
+
+**Implementation:**
+- New version computation script: `scripts/version.sh`
+- Makefile integration: `make version`, `make version-validate`
+- CI validation: Version format checked in all builds
+
 ### Added
 
 #### SLSA Provenance Attestation (Feature 001-slsa-provenance-attestation) - 2026-01-17
