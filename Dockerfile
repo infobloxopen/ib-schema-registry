@@ -55,6 +55,7 @@ FROM ${RUNTIME_IMAGE} AS runtime
 
 # Metadata labels (OCI standard annotations)
 ARG VERSION=dev
+ARG UPSTREAM_VERSION=unknown
 ARG REVISION=unknown
 ARG CREATED=1970-01-01T00:00:00Z
 
@@ -64,7 +65,8 @@ LABEL org.opencontainers.image.title="Infoblox Schema Registry" \
       org.opencontainers.image.source="https://github.com/infobloxopen/ib-schema-registry" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${REVISION}" \
-      org.opencontainers.image.created="${CREATED}"
+      org.opencontainers.image.created="${CREATED}" \
+      org.infoblox.upstream.version="${UPSTREAM_VERSION}"
 
 # Create non-root user for security (UID 65532 = nobody)
 USER 65532:65532

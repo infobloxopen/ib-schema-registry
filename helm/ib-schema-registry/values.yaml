@@ -10,8 +10,19 @@ image:
   repository: ghcr.io/infobloxopen/ib-schema-registry
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  # Leave empty ("") to use the chart appVersion, which is automatically
-  # synchronized with the Docker image version during CI/CD builds.
+  # Leave empty ("") to use the chart appVersion.
+  #
+  # VERSIONING NOTES:
+  # - Chart version: Full version with commit SHA (e.g., 8.1.1-ib.1.abc1234)
+  # - Chart appVersion: Upstream Schema Registry version only (e.g., 8.1.1)
+  # - Image tag: Defaults to appVersion unless overridden here
+  #
+  # The appVersion field tracks the upstream Confluent Schema Registry version,
+  # ensuring clarity about which Schema Registry release is deployed. The full
+  # chart version includes the commit SHA for complete traceability.
+  #
+  # Example override for specific build:
+  # tag: "8.1.1-ib.1.abc1234"
   tag: ""
 
 # Image pull secrets for private registries

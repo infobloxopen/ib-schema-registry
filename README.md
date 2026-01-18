@@ -91,12 +91,12 @@ curl http://localhost:8081/subjects
 ```bash
 # Install stable release from OCI registry
 helm install schema-registry oci://ghcr.io/infobloxopen/ib-schema-registry \
-  --version 1.2.3 \
+  --version 8.1.1-ib.1.abc1234 \
   --set config.kafkaBootstrapServers="kafka:9092"
 
 # Install development build from main branch
 helm install schema-registry-dev oci://ghcr.io/infobloxopen/ib-schema-registry \
-  --version 0.0.0-main.abc1234 \
+  --version 8.1.1-ib.main.abc1234 \
   --set config.kafkaBootstrapServers="kafka:9092"
 
 # Or install from local chart
@@ -107,14 +107,15 @@ helm install schema-registry ./helm/ib-schema-registry \
 ### Helm Chart Versioning
 
 **Stable Releases**: Charts are automatically published when git tags are pushed:
-- Git tag `v1.2.3` → Helm chart version `1.2.3`
-- Version synchronized with Docker image version
-- Install: `helm install ... oci://ghcr.io/infobloxopen/ib-schema-registry --version 1.2.3`
+- Git tag `v8.1.1-ib.1` → Helm chart version `8.1.1-ib.1.abc1234`
+- Chart version includes full version with commit SHA
+- AppVersion shows upstream version: `8.1.1`
+- Install: `helm install ... oci://ghcr.io/infobloxopen/ib-schema-registry --version 8.1.1-ib.1.abc1234`
 
 **Development Builds**: Charts published for every commit to main branch:
-- Commit to main → Chart version `0.0.0-main.<short-sha>`
+- Commit to main → Chart version `8.1.1-ib.main.abc1234`
 - Enables testing pre-release features
-- Install: `helm install ... oci://ghcr.io/infobloxopen/ib-schema-registry --version 0.0.0-main.abc1234`
+- Install: `helm install ... oci://ghcr.io/infobloxopen/ib-schema-registry --version 8.1.1-ib.main.abc1234`
 
 **List Available Versions**:
 ```bash
@@ -122,7 +123,7 @@ helm install schema-registry ./helm/ib-schema-registry \
 helm search repo ib-schema-registry --versions
 
 # Pull specific version
-helm pull oci://ghcr.io/infobloxopen/ib-schema-registry --version 1.2.3
+helm pull oci://ghcr.io/infobloxopen/ib-schema-registry --version 8.1.1-ib.1.abc1234
 ```
 
 ### Production HA Deployment
@@ -130,7 +131,7 @@ helm pull oci://ghcr.io/infobloxopen/ib-schema-registry --version 1.2.3
 ```bash
 # Deploy with 3 replicas, PodDisruptionBudget, and topology spread
 helm install schema-registry oci://ghcr.io/infobloxopen/ib-schema-registry \
-  --version 1.2.3 \
+  --version 8.1.1-ib.1.abc1234 \
   --set config.kafkaBootstrapServers="kafka-0:9092,kafka-1:9092,kafka-2:9092" \
   --set replicaCount=3 \
   --set resources.requests.memory=1Gi \
@@ -145,6 +146,58 @@ helm install schema-registry oci://ghcr.io/infobloxopen/ib-schema-registry \
 - ✅ **E2E Tested**: Validated with k3d and Redpanda in CI/CD
 
 See [helm/ib-schema-registry/README.md](helm/ib-schema-registry/README.md) for full Helm chart documentation.
+
+## Versioning
+
+### Version Format
+
+All artifacts (Docker images, Helm charts) use a **unified versioning scheme**:
+
+```
+<upstream>-ib.<suffix>.<sha>[.dirty]
+```
+
+**Examples**:
+- Release: `8.1.1-ib.1.abc1234` (from git tag `v8.1.1-ib.1`)
+- Main branch: `8.1.1-ib.main.abc1234` (development builds)
+- Feature branch: `8.1.1-ib.feature-auth.abc1234` (PR validation)
+
+### Components
+
+| Component | Description | Example |
+|-----------|-------------|---------|
+| `8.1.1` | Upstream Confluent Schema Registry version | `8.1.1` |
+| `-ib.` | Infoblox identifier (constant) | `-ib.` |
+| `1` or `main` | Release number OR branch name | `1`, `main`, `feature-auth` |
+| `.abc1234` | Git commit SHA (7 chars) | `.abc1234` |
+| `.dirty` | Optional: uncommitted changes | `.dirty` |
+
+### Check Your Version
+
+```bash
+# Display version information
+make version
+
+# Example output:
+# VERSION = 8.1.1-ib.main.abc1234
+# UPSTREAM_VERSION = 8.1.1
+# SHA = abc1234
+# DIRTY = false
+
+# Validate version format
+make version-validate
+```
+
+### Why This Format?
+
+**OCI Registry Compatibility**: The previous format (`7.6.1+infoblox.1`) used `+` (build metadata), which is **not supported by OCI registries** like GHCR. The new format uses `-` (prerelease identifiers) for universal compatibility.
+
+**Traceability**: Every version includes the commit SHA, enabling:
+- Source code lookup: `https://github.com/infobloxopen/ib-schema-registry/commit/abc1234`
+- Reproducible builds from exact commit
+- Supply chain verification with SLSA provenance
+
+For complete versioning documentation, see [docs/versioning.md](docs/versioning.md).
 
 ### Docker Compose Example
 

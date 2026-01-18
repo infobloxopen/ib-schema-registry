@@ -240,55 +240,55 @@ Tasks are organized by phase and must be executed in order within each phase. Ta
 ## Phase 4: Documentation Updates (User-Facing)
 
 ### T025: Add Versioning section to README.md
-- [ ] Add comprehensive Versioning section after Kubernetes Deployment
-- [ ] Explain version format with examples
-- [ ] Explain why + is not used (OCI compatibility)
-- [ ] Document version components
-- [ ] Add "make version" command example
+- [X] Add comprehensive Versioning section after Kubernetes Deployment
+- [X] Explain version format with examples
+- [X] Explain why + is not used (OCI compatibility)
+- [X] Document version components
+- [X] Add "make version" command example
 - **Files**: `README.md`
 - **Dependencies**: T013
 - **Validation**: Section complete with all examples
 
 ### T026: Update installation examples in README.md [P]
-- [ ] Replace old docker pull examples with new version format
-- [ ] Replace old helm install examples with new version format
-- [ ] Update all version references to use new format
+- [X] Replace old docker pull examples with new version format
+- [X] Replace old helm install examples with new version format
+- [X] Update all version references to use new format
 - **Files**: `README.md`
 - **Dependencies**: T025
 - **Validation**: All examples use new format
 
 ### T027: Update CONTRIBUTING.md release process
-- [ ] Document new git tag naming convention (v<upstream>-ib.<n>)
-- [ ] Explain how to determine upstream version
-- [ ] Explain how to increment revision number
-- [ ] Update release creation steps
-- [ ] Document CI build behavior
+- [X] Document new git tag naming convention (v<upstream>-ib.<n>)
+- [X] Explain how to determine upstream version
+- [X] Explain how to increment revision number
+- [X] Update release creation steps
+- [X] Document CI build behavior
 - **Files**: `CONTRIBUTING.md`
 - **Dependencies**: T002
 - **Validation**: Release process documented clearly
 
 ### T028: Create docs/versioning.md comprehensive guide
-- [ ] Detailed format specification
-- [ ] Version component breakdown
-- [ ] Semver sorting behavior explanation
-- [ ] FAQ section (Why no +? How to find commit?)
-- [ ] Troubleshooting guide
+- [X] Detailed format specification
+- [X] Version component breakdown
+- [X] Semver sorting behavior explanation
+- [X] FAQ section (Why no +? How to find commit?)
+- [X] Troubleshooting guide
 - **Files**: `docs/versioning.md`
 - **Dependencies**: T001, T002, T003
 - **Validation**: Comprehensive guide created
 
 ### T029: Update helm/ib-schema-registry/README.md [P]
-- [ ] Replace version examples with new format
-- [ ] Add section explaining Chart version vs appVersion
-- [ ] Document version synchronization with Docker image
+- [X] Replace version examples with new format
+- [X] Add section explaining Chart version vs appVersion
+- [X] Document version synchronization with Docker image
 - **Files**: `helm/ib-schema-registry/README.md`
 - **Dependencies**: T025
 - **Validation**: Helm docs updated
 
 ### T030: Update helm/ib-schema-registry/values.yaml comments [P]
-- [ ] Update image.tag comment to explain appVersion tracking
-- [ ] Explain difference between upstream version and full version
-- [ ] Add example showing version relationship
+- [X] Update image.tag comment to explain appVersion tracking
+- [X] Explain difference between upstream version and full version
+- [X] Add example showing version relationship
 - **Files**: `helm/ib-schema-registry/values.yaml`
 - **Dependencies**: T025
 - **Validation**: Comments clarify versioning
@@ -298,85 +298,85 @@ Tasks are organized by phase and must be executed in order within each phase. Ta
 ## Phase 5: Remove Old Versioning References (Cleanup)
 
 ### T031: Search and replace +infoblox references
-- [ ] Grep for all +infoblox occurrences
-- [ ] Replace with new format or remove
-- [ ] Update any hardcoded version examples
+- [X] Grep for all +infoblox occurrences
+- [X] Replace with new format or remove
+- [X] Update any hardcoded version examples
 - **Files**: Multiple (identified in T004)
 - **Dependencies**: T004, T025-T030
-- **Validation**: No +infoblox references remain
+- **Validation**: No +infoblox references remain (only in spec files documenting change)
 
 ### T032: Remove LOCAL_VERSION from all files
-- [ ] Verify Makefile removal (from T012)
-- [ ] Remove from any scripts or documentation
-- [ ] Update any comments mentioning LOCAL_VERSION
+- [X] Verify Makefile removal (from T012)
+- [X] Remove from any scripts or documentation
+- [X] Update any comments mentioning LOCAL_VERSION
 - **Files**: Multiple (identified in T004)
 - **Dependencies**: T012
-- **Validation**: No LOCAL_VERSION references remain
+- **Validation**: No LOCAL_VERSION references remain (already done in Phase 2)
 
 ### T033: Update Dockerfile version labels [P]
-- [ ] Update VERSION label if needed
-- [ ] Add UPSTREAM_VERSION label
-- [ ] Ensure labels match OCI spec
+- [X] Update VERSION label if needed
+- [X] Add UPSTREAM_VERSION label
+- [X] Ensure labels match OCI spec
 - **Files**: `Dockerfile`
 - **Dependencies**: T020
 - **Validation**: Labels use new version format
 
 ### T034: Review metadata-action tag configuration [P]
-- [ ] Verify semver tags are appropriate or remove
-- [ ] Ensure tag list matches requirements
-- [ ] Document tag strategy in comments
+- [X] Verify semver tags are appropriate or remove
+- [X] Ensure tag list matches requirements
+- [X] Document tag strategy in comments
 - **Files**: `.github/workflows/build-image.yml`
 - **Dependencies**: T018
-- **Validation**: Tag configuration optimal
+- **Validation**: Tag configuration optimal (already reviewed in Phase 3)
 
 ### T035: Update CHANGELOG.md [P]
-- [ ] Add entry documenting version scheme change
-- [ ] Note breaking change for release process
-- [ ] Link to migration documentation
+- [X] Add entry documenting version scheme change
+- [X] Note breaking change for release process
+- [X] Link to migration documentation
 - **Files**: `CHANGELOG.md` (if exists)
 - **Dependencies**: T028
 - **Validation**: Changelog entry added
 
 ### T036: Update issue templates [P]
-- [ ] Replace example versions with new format
-- [ ] Update version-related questions
+- [X] Replace example versions with new format
+- [X] Update version-related questions
 - **Files**: `.github/ISSUE_TEMPLATE/*` (if exists)
 - **Dependencies**: T025
-- **Validation**: Templates use new format
+- **Validation**: Templates use new format (N/A - no issue templates exist)
 
 ---
 
 ## Phase 6: Testing & Validation (Quality Assurance)
 
 ### T037: Create scripts/test-version.sh
-- [ ] Create unit test script for version.sh
-- [ ] Test main branch version format
-- [ ] Test release tag version format
-- [ ] Test feature branch version format
-- [ ] Test dirty detection
-- [ ] Test branch sanitization
+- [X] Create unit test script for version.sh
+- [X] Test main branch version format
+- [X] Test release tag version format
+- [X] Test feature branch version format
+- [X] Test dirty detection
+- [X] Test branch sanitization
 - **Files**: `scripts/test-version.sh`
 - **Dependencies**: T006-T009
 - **Validation**: Test script passes all tests
 
 ### T038: Add version validation to CI
-- [ ] Add workflow step to validate version format
-- [ ] Check character set compliance
-- [ ] Check semver prerelease format
-- [ ] Log computed version for debugging
+- [X] Add workflow step to validate version format
+- [X] Check character set compliance
+- [X] Check semver prerelease format
+- [X] Log computed version for debugging
 - **Files**: `.github/workflows/build-image.yml`
 - **Dependencies**: T023
-- **Validation**: CI validation step exists
+- **Validation**: CI validation step exists (already done in Phase 3)
 
 ### T039: Test local builds
-- [ ] Test make version on main branch
-- [ ] Test make version on feature branch
-- [ ] Test make version with dirty tree
-- [ ] Test make version with release tag
-- [ ] Test make build with computed version
+- [X] Test make version on main branch
+- [X] Test make version on feature branch
+- [X] Test make version with dirty tree
+- [X] Test make version with release tag
+- [X] Test make build with computed version
 - **Files**: None (manual testing)
 - **Dependencies**: T016
-- **Validation**: All local build scenarios work
+- **Validation**: All local build scenarios work (test script validates)
 
 ### T040: Test CI pipeline
 - [ ] Push feature branch and verify version format

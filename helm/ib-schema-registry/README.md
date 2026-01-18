@@ -24,12 +24,12 @@ Helm chart for deploying Confluent Schema Registry on Kubernetes with multi-arch
 ```bash
 # Install stable release
 helm install schema-registry oci://ghcr.io/infobloxopen/ib-schema-registry \
-  --version 1.2.3 \
+  --version 8.1.1-ib.1.abc1234 \
   --set config.kafkaBootstrapServers="kafka:9092"
 
 # Install development build
 helm install schema-registry-dev oci://ghcr.io/infobloxopen/ib-schema-registry \
-  --version 0.0.0-main.abc1234 \
+  --version 8.1.1-ib.main.abc1234 \
   --set config.kafkaBootstrapServers="kafka:9092"
 ```
 
@@ -47,16 +47,29 @@ helm install schema-registry ./helm/ib-schema-registry \
 
 ### Chart Versioning
 
+**Unified Versioning**: All artifacts (Docker images, Helm charts) use the same version format:
+
+```
+<upstream>-ib.<suffix>.<sha>[.dirty]
+```
+
 **Stable Releases**: Charts are automatically published when git tags are pushed
-- Git tag `v1.2.3` → Helm chart version `1.2.3`
-- Chart version synchronized with Docker image version
-- Example: `helm install ... oci://ghcr.io/infobloxopen/ib-schema-registry --version 1.2.3`
+- Git tag `v8.1.1-ib.1` → Helm chart version `8.1.1-ib.1.abc1234`
+- Chart `version` includes full version with commit SHA (for traceability)
+- Chart `appVersion` shows upstream version: `8.1.1` (for user clarity)
+- Example: `helm install ... oci://ghcr.io/infobloxopen/ib-schema-registry --version 8.1.1-ib.1.abc1234`
 
 **Development Builds**: Charts published for every commit to main branch
-- Commit SHA `abc1234...` → Chart version `0.0.0-main.abc1234` (7-char SHA)
-- Pre-release semver format ensures development builds sort before stable releases
-- Use for testing unreleased features
-- Example: `helm install ... oci://ghcr.io/infobloxopen/ib-schema-registry --version 0.0.0-main.abc1234`
+- Commit to main → Chart version `8.1.1-ib.main.abc1234`
+- Branch-based suffix enables testing unreleased features
+- Commit SHA provides exact source traceability
+- Example: `helm install ... oci://ghcr.io/infobloxopen/ib-schema-registry --version 8.1.1-ib.main.abc1234`
+
+**Why This Format?**
+
+The format uses SemVer **prerelease identifiers** (`-`) instead of build metadata (`+`) to ensure **OCI registry compatibility**. The previous format (`7.6.1+infoblox.1`) used `+`, which is not reliably supported by registries like GHCR.
+
+See [docs/versioning.md](../../docs/versioning.md) for complete versioning documentation.
 
 **List Available Versions**:
 ```bash
@@ -65,8 +78,8 @@ helm repo add ib-schema-registry oci://ghcr.io/infobloxopen
 helm search repo ib-schema-registry --versions
 
 # Or pull specific version directly
-helm pull oci://ghcr.io/infobloxopen/ib-schema-registry --version 1.2.3
-tar -xzf ib-schema-registry-1.2.3.tgz
+helm pull oci://ghcr.io/infobloxopen/ib-schema-registry --version 8.1.1-ib.1.abc1234
+tar -xzf ib-schema-registry-8.1.1-ib.1.abc1234.tgz
 ```
 
 ### Verify Installation
@@ -106,12 +119,12 @@ helm install schema-registry ./helm/ib-schema-registry \
 
 #### Custom Image
 
-> **Note**: By default, the chart uses the `appVersion` field from Chart.yaml as the image tag. The `appVersion` is automatically synchronized with the Docker image version during CI/CD builds. Only override `image.tag` if you need to use a different version than the chart's default.
+> **Note**: By default, the chart uses the `appVersion` field from Chart.yaml as the image tag. The `appVersion` is automatically set to the **upstream Schema Registry version** (e.g., `8.1.1`) during CI/CD builds, while the chart `version` includes the full version with commit SHA (e.g., `8.1.1-ib.1.abc1234`). Only override `image.tag` if you need to use a different image version than the chart's default.
 
 ```bash
 helm install schema-registry ./helm/ib-schema-registry \
   --set image.repository=ghcr.io/infobloxopen/ib-schema-registry \
-  --set image.tag=v1.0.0 \
+  --set image.tag=8.1.1-ib.1.abc1234 \
   --set config.kafkaBootstrapServers="kafka:9092"
 ```
 
