@@ -114,6 +114,9 @@ echo "Step 4/5: Installing Schema Registry Helm chart"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "→ Installing chart from: $CHART_DIR"
 
+# Enable metrics for E2E testing
+ENABLE_METRICS="${ENABLE_METRICS:-true}"
+
 helm install "$RELEASE_NAME" "$CHART_DIR" \
   --namespace "$NAMESPACE" \
   --set config.kafkaBootstrapServers="redpanda.$NAMESPACE.svc.cluster.local:9092" \
@@ -121,6 +124,7 @@ helm install "$RELEASE_NAME" "$CHART_DIR" \
   --set image.repository="${IMAGE_NAME}" \
   --set image.tag="${IMAGE_TAG}" \
   --set image.pullPolicy=Never \
+  --set metrics.enabled="${ENABLE_METRICS}" \
   --wait \
   --timeout 5m
 
@@ -134,6 +138,7 @@ echo "Step 5/5: Validating Schema Registry API"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 export RELEASE_NAME
 export NAMESPACE
+export METRICS_ENABLED="${ENABLE_METRICS}"
 bash "$SCRIPT_DIR/validate-schema-registry.sh"
 
 echo ""

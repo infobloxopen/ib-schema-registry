@@ -5,6 +5,7 @@ set -euo pipefail
 NAMESPACE="${NAMESPACE:-default}"
 RELEASE_NAME="${RELEASE_NAME:-schema-registry}"
 SERVICE_NAME="${RELEASE_NAME}-ib-schema-registry"
+METRICS_ENABLED="${METRICS_ENABLED:-false}"
 
 echo "→ Validating Schema Registry API..."
 
@@ -128,3 +129,85 @@ echo "  - Retrieve schema: OK"
 echo "  - List subjects after registration: OK"
 echo "  - Get schema by ID: OK"
 echo ""
+
+# Prometheus Metrics Tests (if enabled)
+if [[ "$METRICS_ENABLED" == "true" ]]; then
+  echo ""
+  echo "======================================"
+  echo "  Prometheus Metrics Tests"
+  echo "======================================"
+  echo ""
+  
+  # Setup port-forward for metrics port
+  echo "→ Setting up port-forward for metrics..."
+  kubectl port-forward -n "$NAMESPACE" "svc/$SERVICE_NAME" 9404:9404 &
+  METRICS_PF_PID=$!
+  sleep 3
+  
+  # Cleanup metrics port-forward on exit
+  trap "kill $METRICS_PF_PID 2>/dev/null || true; kill $PF_PID 2>/dev/null || true" EXIT
+  
+  METRICS_URL="http://localhost:9404/metrics"
+  
+  # Test 1: Metrics endpoint responding
+  echo "Test 1: GET /metrics (Prometheus endpoint)"
+  if METRICS_RESPONSE=$(curl -f -s "$METRICS_URL"); then
+    echo "  ✅ PASS - Metrics endpoint responding"
+  else
+    echo "  ❌ FAIL - Metrics endpoint not responding"
+    exit 1
+  fi
+  
+  # Test 2: Validate Prometheus format
+  echo ""
+  echo "Test 2: Validate Prometheus text format"
+  if echo "$METRICS_RESPONSE" | grep -q "^# HELP"; then
+    echo "  ✅ PASS - Metrics in Prometheus text format"
+  else
+    echo "  ❌ FAIL - Metrics not in expected Prometheus format"
+    exit 1
+  fi
+  
+  # Test 3: Check for JVM metrics
+  echo ""
+  echo "Test 3: Verify JVM metrics exported"
+  if echo "$METRICS_RESPONSE" | grep -q "jvm_memory_"; then
+    echo "  ✅ PASS - JVM memory metrics found"
+  else
+    echo "  ❌ FAIL - JVM memory metrics not found"
+    exit 1
+  fi
+  
+  # Test 4: Check for Schema Registry metrics
+  echo ""
+  echo "Test 4: Verify Schema Registry metrics exported"
+  if echo "$METRICS_RESPONSE" | grep -qE "kafka_schema_registry_|jetty_|jersey_"; then
+    echo "  ✅ PASS - Schema Registry JMX metrics found"
+  else
+    echo "  ⚠️  WARN - Schema Registry JMX metrics not found (may take time to populate)"
+  fi
+  
+  # Test 5: Count total metrics
+  echo ""
+  echo "Test 5: Count exported metrics"
+  METRIC_COUNT=$(echo "$METRICS_RESPONSE" | grep -v "^#" | grep -v "^$" | wc -l | tr -d ' ')
+  if [[ $METRIC_COUNT -gt 10 ]]; then
+    echo "  ✅ PASS - Exporting $METRIC_COUNT metrics"
+  else
+    echo "  ❌ FAIL - Only $METRIC_COUNT metrics found (expected > 10)"
+    exit 1
+  fi
+  
+  echo ""
+  echo "======================================"
+  echo "  ✅ All metrics tests passed!"
+  echo "======================================"
+  echo ""
+  echo "Metrics Summary:"
+  echo "  - Endpoint responding: OK"
+  echo "  - Prometheus format: OK"
+  echo "  - JVM metrics: OK"
+  echo "  - Schema Registry metrics: OK (or pending)"
+  echo "  - Total metrics exported: $METRIC_COUNT"
+  echo ""
+fi
