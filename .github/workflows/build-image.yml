@@ -341,7 +341,7 @@ jobs:
           
           # Package chart
           helm package helm/ib-schema-registry/
-          CHART_FILE="ib-schema-registry-${TAG}.tgz"
+          CHART_FILE="ib-schema-registry-chart-${TAG}.tgz"
           
           if [ ! -f "${CHART_FILE}" ]; then
             echo "::error::Chart file not found: ${CHART_FILE}"
