@@ -290,11 +290,11 @@ jobs:
             build/sbom/sbom-amd64.spdx.json
             build/sbom/sbom-arm64.cyclonedx.json
             build/sbom/sbom-arm64.spdx.json
+            build/sbom/sbom-helm-chart.spdx.json
           retention-days: 90
           if-no-files-found: error
       
       - name: Package and publish Helm chart
-        if: github.event_name == 'push'
         continue-on-error: true
         run: |
           set -euo pipefail
@@ -331,15 +331,33 @@ jobs:
           
           echo "✅ Chart packaged: ${CHART_FILE} ($(stat -f%z "${CHART_FILE}" 2>/dev/null || stat -c%s "${CHART_FILE}") bytes)"
           
-          # Authenticate to GHCR
-          echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
+          # Generate SBOM for Helm chart (main branch only)
+          if [ "${{ github.event_name }}" == "push" ] && [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            echo "📋 Generating SBOM for Helm chart..."
+            mkdir -p build/sbom
+            
+            # Use Syft to scan the Helm chart package
+            syft "${CHART_FILE}" \
+              --output spdx-json=build/sbom/sbom-helm-chart.spdx.json
+            
+            # Validate SBOM
+            jq empty build/sbom/sbom-helm-chart.spdx.json
+            echo "✅ Helm chart SBOM generated and validated"
+          fi
           
-          # Push chart to OCI registry
-          helm push "${CHART_FILE}" oci://${{ env.REGISTRY }}/${{ github.repository_owner }}
-          
-          # Log success with full reference
-          echo "🚀 Published chart: oci://${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSION}"
-          echo "📥 Install command: helm install my-registry oci://${{ env.REGISTRY }}/${{ env.IMAGE_NAME }} --version ${VERSION}"
+          # Push chart only if not a pull request (same as Docker image)
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "🔐 Authenticating to GHCR..."
+            echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
+            
+            echo "📤 Pushing chart to OCI registry..."
+            helm push "${CHART_FILE}" oci://${{ env.REGISTRY }}/${{ github.repository_owner }}
+            
+            echo "🚀 Published chart: oci://${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSION}"
+            echo "📥 Install command: helm install my-registry oci://${{ env.REGISTRY }}/${{ env.IMAGE_NAME }} --version ${VERSION}"
+          else
+            echo "⏭️  Skipping chart push (pull request build - chart validated but not published)"
+          fi
 
   test:
     needs: build
