@@ -38,6 +38,29 @@ jobs:
       - name: Compute version
         id: version
         run: |
+          # Check if upstream submodule already has tags for current commit
+          cd upstream/schema-registry
+          if ! git tag --points-at HEAD | grep -qE '^v?[0-9]+\.[0-9]+\.[0-9]+$'; then
+            # No tags found locally, fetch only tags for current commit
+            echo "📦 Fetching tags for submodule commit..."
+            COMMIT_SHA=$(git rev-parse HEAD)
+            
+            # Query remote to find which tags point to this commit
+            MATCHING_TAG=$(git ls-remote --tags origin | grep "$COMMIT_SHA" | grep -oE 'refs/tags/v?[0-9]+\.[0-9]+\.[0-9]+$' | head -n1)
+            
+            if [ -n "$MATCHING_TAG" ]; then
+              # Fetch only the specific tag we need
+              git fetch origin "$MATCHING_TAG:$MATCHING_TAG"
+            else
+              # Fallback: fetch all tags if we can't find a specific match
+              echo "⚠️  No version tag found for commit, fetching all tags..."
+              git fetch --tags
+            fi
+          else
+            echo "✅ Version tag already available locally"
+          fi
+          cd ../..
+          
           # Compute version and cache to .version.mk file
           echo "🔢 Computing version..."
           make version-file
