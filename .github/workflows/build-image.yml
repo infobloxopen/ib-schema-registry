@@ -177,6 +177,7 @@ jobs:
       
       - name: Generate SBOM for AMD64
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        id: sbom-amd64
         run: |
           echo "Generating SBOM for linux/amd64..."
           mkdir -p build/sbom
@@ -185,6 +186,11 @@ jobs:
           IMAGE_REF="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}"
           echo "Pulling AMD64 image: ${IMAGE_REF}"
           docker pull --platform linux/amd64 "${IMAGE_REF}"
+          
+          # Get platform-specific digest for attestation
+          AMD64_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "${IMAGE_REF}" | grep -oE 'sha256:[a-f0-9]{64}' || echo "${{ steps.build.outputs.digest }}")
+          echo "amd64_digest=${AMD64_DIGEST}" >> $GITHUB_OUTPUT
+          echo "AMD64 platform digest: ${AMD64_DIGEST}"
           
           # Generate CycloneDX SBOM (primary format)
           syft "${IMAGE_REF}" \
@@ -204,6 +210,7 @@ jobs:
       
       - name: Generate SBOM for ARM64
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        id: sbom-arm64
         run: |
           echo "Generating SBOM for linux/arm64..."
           
@@ -211,6 +218,11 @@ jobs:
           IMAGE_REF="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}"
           echo "Pulling ARM64 image: ${IMAGE_REF}"
           docker pull --platform linux/arm64 "${IMAGE_REF}"
+          
+          # Get platform-specific digest for attestation
+          ARM64_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "${IMAGE_REF}" | grep -oE 'sha256:[a-f0-9]{64}' || echo "${{ steps.build.outputs.digest }}")
+          echo "arm64_digest=${ARM64_DIGEST}" >> $GITHUB_OUTPUT
+          echo "ARM64 platform digest: ${ARM64_DIGEST}"
           
           # Generate CycloneDX SBOM (primary format)
           syft "${IMAGE_REF}" \
@@ -233,7 +245,7 @@ jobs:
         uses: actions/attest-sbom@v2
         with:
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          subject-digest: ${{ steps.build.outputs.digest }}
+          subject-digest: ${{ steps.sbom-amd64.outputs.amd64_digest }}
           sbom-path: build/sbom/sbom-amd64.spdx.json
           push-to-registry: true
       
@@ -242,7 +254,7 @@ jobs:
         uses: actions/attest-sbom@v2
         with:
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          subject-digest: ${{ steps.build.outputs.digest }}
+          subject-digest: ${{ steps.sbom-arm64.outputs.arm64_digest }}
           sbom-path: build/sbom/sbom-arm64.spdx.json
           push-to-registry: true
       
