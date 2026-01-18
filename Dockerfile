@@ -16,7 +16,7 @@ WORKDIR /workspace/jmx_exporter
 COPY upstream/jmx_exporter /workspace/jmx_exporter
 
 RUN --mount=type=cache,target=/root/.m2,id=jmx-m2-cache \
-    mvn clean package -DskipTests
+    mvn -B clean package -DskipTests
 
 # =============================================================================
 # Schema Registry Builder Stage - Compile Schema Registry from upstream source
@@ -54,7 +54,7 @@ WORKDIR /workspace/upstream/schema-registry
 
 # Build the application (dependency versions patched in pom.xml)
 RUN --mount=type=cache,target=/root/.m2,id=schema-registry-m2-cache \
-    mvn -DskipTests package -P standalone \
+    mvn -B -DskipTests package -P standalone \
     -Dspotbugs.skip=true \
     -Dcheckstyle.skip=true \
     -Dcyclonedx.skip=true \
