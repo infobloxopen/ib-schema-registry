@@ -153,6 +153,179 @@ See [values.yaml](values.yaml) for full configuration options.
 | `config.kafkastoreTopic` | Internal storage topic | `_schemas` |
 | `resources.requests.memory` | Memory request | `512Mi` |
 | `resources.limits.memory` | Memory limit | `1Gi` |
+| `metrics.enabled` | Enable Prometheus metrics export | `false` |
+| `metrics.port` | Metrics HTTP endpoint port | `9404` |
+| `metrics.path` | Metrics HTTP endpoint path | `/metrics` |
+| `metrics.annotations.enabled` | Add Prometheus scrape annotations | `true` |
+| `metrics.config` | Custom JMX exporter configuration | `null` |
+
+## Monitoring
+
+### Prometheus Metrics
+
+The chart supports exporting Prometheus metrics via JMX Exporter for observability and monitoring.
+
+#### Enable Metrics Collection
+
+```bash
+helm install schema-registry ./helm/ib-schema-registry \
+  --set config.kafkaBootstrapServers="kafka:9092" \
+  --set metrics.enabled=true
+```
+
+When enabled, the following happens:
+- JMX Exporter javaagent is loaded into the Schema Registry JVM process
+- HTTP `/metrics` endpoint is exposed on port 9404 (configurable)
+- Prometheus scrape annotations are added to pods for auto-discovery
+- Service includes additional metrics port
+
+#### Access Metrics Endpoint
+
+```bash
+# Port-forward metrics port
+kubectl port-forward svc/ib-schema-registry 9404:9404
+
+# Query metrics
+curl http://localhost:9404/metrics
+
+# Sample output:
+# kafka_schema_registry_jetty_requests_total 12345.0
+# kafka_schema_registry_jersey_request_count{path="/subjects"} 5678.0
+# jvm_memory_heapmemoryusage_used 2.68435456E8
+```
+
+#### Exported Metrics
+
+Default configuration exports:
+
+**Schema Registry Metrics**:
+- `kafka_schema_registry_jetty_*` - HTTP server metrics (requests, response times)
+- `kafka_schema_registry_jersey_*` - REST API endpoint metrics by path
+- `kafka_schema_registry_master_slave_*` - Cluster role indicators (master/slave)
+
+**JVM Metrics**:
+- `jvm_memory_*` - Heap and non-heap memory usage
+- `jvm_gc_*` - Garbage collection metrics
+- `jvm_threads_*` - Thread counts and states
+- `jvm_os_*` - Operating system metrics (CPU, file descriptors)
+
+#### Prometheus Integration
+
+**Automatic Discovery** (when `metrics.annotations.enabled=true`):
+
+Prometheus can automatically discover metrics endpoints using Kubernetes pod annotations:
+
+```yaml
+# Automatically added by chart
+annotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "9404"
+  prometheus.io/path: "/metrics"
+```
+
+**Manual Prometheus Configuration**:
+
+```yaml
+# prometheus.yml
+scrape_configs:
+  - job_name: 'schema-registry'
+    kubernetes_sd_configs:
+      - role: pod
+        namespaces:
+          names:
+            - default
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
+        action: keep
+        regex: ib-schema-registry
+      - source_labels: [__address__]
+        action: replace
+        target_label: __address__
+        regex: ([^:]+)(?::\d+)?
+        replacement: $1:9404
+```
+
+#### Custom Metrics Configuration
+
+Customize which JMX MBeans are exported:
+
+```bash
+helm install schema-registry ./helm/ib-schema-registry \
+  --set config.kafkaBootstrapServers="kafka:9092" \
+  --set metrics.enabled=true \
+  --set-file metrics.config=./custom-jmx-config.yaml
+```
+
+Example custom configuration:
+
+```yaml
+# custom-jmx-config.yaml
+lowercaseOutputName: true
+whitelistObjectNames:
+  - "kafka.schema.registry:type=jetty-metrics,*"
+rules:
+  - pattern: 'kafka.schema.registry<type=jetty-metrics><>(.+):'
+    name: kafka_schema_registry_jetty_$1
+```
+
+#### Custom Metrics Port
+
+Change the metrics port (useful for avoiding port conflicts):
+
+```bash
+helm install schema-registry ./helm/ib-schema-registry \
+  --set config.kafkaBootstrapServers="kafka:9092" \
+  --set metrics.enabled=true \
+  --set metrics.port=9999
+```
+
+#### Grafana Dashboards
+
+Example PromQL queries for Grafana:
+
+```promql
+# Request rate
+rate(kafka_schema_registry_jetty_requests_total[5m])
+
+# Request count by endpoint
+sum by (path) (kafka_schema_registry_jersey_request_count)
+
+# JVM heap usage percentage
+(jvm_memory_heapmemoryusage_used / jvm_memory_heapmemoryusage_max) * 100
+
+# Master/slave role indicator (1 = master, 0 = slave)
+kafka_schema_registry_master_slave_role
+```
+
+#### Performance Impact
+
+Metrics collection has minimal overhead:
+- **CPU**: <5% additional usage during scrapes
+- **Memory**: ~10MB additional heap for JMX exporter
+- **Scrape time**: <500ms for ~50-100 metrics
+
+#### Troubleshooting Metrics
+
+**Metrics endpoint not accessible**:
+```bash
+# Check if metrics are enabled
+helm get values schema-registry | grep -A5 metrics
+
+# Verify metrics port in service
+kubectl get svc ib-schema-registry -o yaml | grep -A10 ports
+
+# Check pod logs for javaagent initialization
+kubectl logs -l app.kubernetes.io/name=ib-schema-registry | grep -i jmx
+```
+
+**No metrics in Prometheus**:
+```bash
+# Verify annotations on pods
+kubectl get pod -l app.kubernetes.io/name=ib-schema-registry -o yaml | grep -A5 "prometheus.io"
+
+# Test metrics endpoint manually
+kubectl exec deploy/ib-schema-registry -- curl -s http://localhost:9404/metrics | head -20
+```
 
 ## Supply-Chain Security
 

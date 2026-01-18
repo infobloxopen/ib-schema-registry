@@ -1,0 +1,204 @@
+# Contract: Helm Values Interface
+
+**Format**: YAML  
+**Consumer**: Helm chart templates  
+**Location**: `helm/ib-schema-registry/values.yaml`
+
+## Metrics Configuration Section
+
+```yaml
+# Prometheus metrics configuration
+metrics:
+  # Enable Prometheus JMX metrics export
+  # Type: boolean
+  # Default: false
+  # Required: no
+  enabled: false
+  
+  # TCP port for metrics HTTP endpoint
+  # Type: integer
+  # Default: 9404
+  # Range: 1024-65535 (non-privileged ports)
+  # Required: no
+  # Constraint: Must not conflict with existing service ports (e.g., 8081)
+  port: 9404
+  
+  # HTTP path for Prometheus scrape endpoint
+  # Type: string
+  # Default: "/metrics"
+  # Format: Must start with "/"
+  # Required: no
+  path: /metrics
+  
+  # Prometheus scrape annotations configuration
+  annotations:
+    # Enable automatic Prometheus scrape annotations on pods
+    # Type: boolean
+    # Default: true
+    # Required: no
+    # Note: Only applied when metrics.enabled=true
+    enabled: true
+  
+  # Custom JMX exporter configuration (advanced)
+  # Type: string (YAML content)
+  # Default: null (uses built-in default config)
+  # Required: no
+  # Format: Valid JMX exporter YAML configuration
+  # Warning: Completely replaces default config (not merged)
+  config: null
+```
+
+## Usage Examples
+
+### Example 1: Enable with defaults
+
+```yaml
+metrics:
+  enabled: true
+```
+
+**Result**:
+- Metrics exposed on port 9404 at path /metrics
+- Pod annotations added automatically
+- Uses default JMX exporter config (Schema Registry + JVM metrics)
+
+### Example 2: Custom port
+
+```yaml
+metrics:
+  enabled: true
+  port: 9999
+```
+
+**Result**:
+- Metrics exposed on port 9999 at path /metrics
+- Prometheus scrape annotation uses port 9999
+
+### Example 3: Disable annotations
+
+```yaml
+metrics:
+  enabled: true
+  annotations:
+    enabled: false
+```
+
+**Result**:
+- Metrics exposed but no pod annotations
+- Useful when using Prometheus ServiceMonitor CRD instead
+
+### Example 4: Custom JMX config
+
+```yaml
+metrics:
+  enabled: true
+  config: |
+    lowercaseOutputName: true
+    whitelistObjectNames:
+      - "kafka.schema.registry:*"
+    rules:
+      - pattern: '.*'
+        name: custom_$1
+```
+
+**Result**:
+- Uses custom JMX exporter configuration
+- Default config completely replaced
+
+### Example 5: Production with custom path
+
+```yaml
+metrics:
+  enabled: true
+  port: 9090
+  path: /prometheus-metrics
+  annotations:
+    enabled: true
+```
+
+**Result**:
+- Metrics at http://pod:9090/prometheus-metrics
+- Annotations reflect custom port and path
+
+## Contract Guarantees
+
+### Backward Compatibility
+
+- **Default behavior**: `metrics.enabled=false` ensures no behavior change for existing deployments
+- **Additive changes**: New sub-fields may be added in minor versions
+- **Breaking changes**: Removal or type changes will trigger major version bump
+
+### Template Behavior
+
+When `metrics.enabled=true`:
+1. **Deployment**: 
+   - Adds `metrics` container port to pod spec
+   - Sets `JAVA_TOOL_OPTIONS` environment variable with javaagent argument
+   - Mounts ConfigMap at `/opt/jmx-exporter/config.yaml`
+2. **Service**: 
+   - Adds `metrics` port to service spec
+3. **ConfigMap**: 
+   - Creates `{{ .Release.Name }}-jmx-exporter` ConfigMap with JMX config
+4. **Annotations** (if `metrics.annotations.enabled=true`):
+   - Adds `prometheus.io/scrape: "true"`
+   - Adds `prometheus.io/port: "{{ .Values.metrics.port }}"`
+   - Adds `prometheus.io/path: "{{ .Values.metrics.path }}"`
+
+When `metrics.enabled=false`:
+- No changes to deployment, service, or ConfigMap
+- Identical behavior to chart without this feature
+
+### Validation
+
+Helm chart will validate:
+- `metrics.port` is in range 1024-65535
+- `metrics.path` starts with `/`
+- `metrics.config` (if provided) is valid YAML (best-effort, actual validation at runtime)
+
+Deployment will fail at runtime if:
+- `metrics.port` conflicts with existing service port
+- `metrics.config` contains invalid JMX exporter syntax
+
+## Integration with Existing Values
+
+```yaml
+# Existing schema registry configuration (unchanged)
+image:
+  repository: ghcr.io/infobloxopen/ib-schema-registry
+  tag: 8.1.1-ib.main.abc1234
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 8081  # Main API port (must not conflict with metrics.port)
+
+# New metrics section (adds to existing)
+metrics:
+  enabled: true
+  port: 9404
+```
+
+## Values Override Precedence
+
+1. Command-line: `--set metrics.enabled=true`
+2. Values file: `-f values-prod.yaml`
+3. Chart defaults: `values.yaml` in chart
+
+## Template Variable Access
+
+Templates can access metrics configuration:
+
+```yaml
+{{- if .Values.metrics.enabled }}
+- name: metrics
+  containerPort: {{ .Values.metrics.port }}
+  protocol: TCP
+{{- end }}
+```
+
+## Notes
+
+- **Port conflict prevention**: Users responsible for ensuring `metrics.port` doesn't conflict with `service.port` or other ports
+- **ConfigMap size**: Custom `metrics.config` should be <1MB (Kubernetes ConfigMap limit)
+- **Pod restart required**: Changing metrics configuration requires pod restart (Kubernetes standard for env var changes)
+- **No side effects**: Enabling/disabling metrics does not affect Schema Registry data or configuration

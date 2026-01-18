@@ -167,3 +167,34 @@ tolerations: []
 # Affinity rules
 affinity: {}
 
+# Prometheus JMX metrics export configuration
+metrics:
+  # Enable Prometheus metrics collection via JMX Exporter javaagent
+  # When enabled, exposes HTTP /metrics endpoint on configured port
+  enabled: false
+  
+  # TCP port for Prometheus metrics endpoint
+  port: 9404
+  
+  # HTTP path for metrics scraping
+  path: /metrics
+  
+  # Prometheus pod annotations for auto-discovery
+  annotations:
+    # Add prometheus.io/scrape, prometheus.io/port, prometheus.io/path annotations
+    # to pod metadata for Prometheus Kubernetes service discovery
+    enabled: true
+  
+  # Custom JMX exporter configuration (YAML format)
+  # If not provided, uses default configuration that exports:
+  # - Schema Registry MBeans (jetty-metrics, jersey-metrics, master-slave-role)
+  # - Essential JVM metrics (memory, GC, threading)
+  # See https://github.com/prometheus/jmx_exporter for configuration syntax
+  config: null
+  # config: |
+  #   lowercaseOutputName: true
+  #   whitelistObjectNames:
+  #     - "kafka.schema.registry:type=jetty-metrics,*"
+  #   rules:
+  #     - pattern: 'kafka.schema.registry<type=jetty-metrics><>(.+):'
+  #       name: kafka_schema_registry_jetty_$1

@@ -147,6 +147,60 @@ helm install schema-registry oci://ghcr.io/infobloxopen/ib-schema-registry \
 
 See [helm/ib-schema-registry/README.md](helm/ib-schema-registry/README.md) for full Helm chart documentation.
 
+## Monitoring
+
+### Prometheus Metrics
+
+The container image includes optional Prometheus JMX metrics export for monitoring Schema Registry health and performance.
+
+#### Enable Metrics with Helm
+
+```bash
+helm install schema-registry oci://ghcr.io/infobloxopen/ib-schema-registry \
+  --version 8.1.1-ib.1.abc1234 \
+  --set config.kafkaBootstrapServers="kafka:9092" \
+  --set metrics.enabled=true
+```
+
+When enabled:
+- HTTP `/metrics` endpoint exposed on port 9404
+- Prometheus scrape annotations added to pods
+- Exports Schema Registry JMX MBeans + JVM metrics
+
+#### Access Metrics
+
+```bash
+# Port-forward metrics port
+kubectl port-forward svc/schema-registry 9404:9404
+
+# Query metrics endpoint
+curl http://localhost:9404/metrics
+
+# Sample metrics:
+# kafka_schema_registry_jetty_requests_total 12345.0
+# kafka_schema_registry_jersey_request_count{path="/subjects"} 5678.0
+# kafka_schema_registry_master_slave_role 1.0
+# jvm_memory_heapmemoryusage_used 2.68435456E8
+```
+
+#### Exported Metrics
+
+- **Schema Registry Metrics**: HTTP requests, API endpoint metrics, master/slave role
+- **JVM Metrics**: Memory usage, garbage collection, threads, CPU
+
+#### Custom Configuration
+
+Customize which metrics are exported:
+
+```bash
+helm install schema-registry oci://ghcr.io/infobloxopen/ib-schema-registry \
+  --set metrics.enabled=true \
+  --set metrics.port=9999 \
+  --set-file metrics.config=./custom-jmx-config.yaml
+```
+
+📘 **Full monitoring guide**: [helm/ib-schema-registry/README.md#monitoring](helm/ib-schema-registry/README.md#monitoring)
+
 ## Versioning
 
 ### Version Format

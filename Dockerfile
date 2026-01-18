@@ -80,6 +80,12 @@ COPY --from=builder --chown=65532:65532 \
     /workspace/upstream/schema-registry/package-schema-registry/target/kafka-schema-registry-package-*-standalone.jar \
     /app/schema-registry.jar
 
+# Copy JMX Prometheus Exporter javaagent for metrics collection
+# Downloaded by maven-dependency-plugin during build (see pom.xml)
+COPY --from=builder --chown=65532:65532 \
+    /workspace/upstream/schema-registry/package-schema-registry/target/jmx-exporter/jmx_prometheus_javaagent.jar \
+    /opt/jmx-exporter/jmx_prometheus_javaagent.jar
+
 # Copy default configuration
 COPY --chown=65532:65532 config/schema-registry.properties /etc/schema-registry/schema-registry.properties
 

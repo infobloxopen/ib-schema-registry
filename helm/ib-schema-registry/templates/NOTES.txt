@@ -86,6 +86,18 @@ For monitoring and troubleshooting:
 * Describe the deployment:
   $ kubectl describe deployment --namespace {{ .Release.Namespace }} {{ include "ib-schema-registry.fullname" . }}
 
+{{- if .Values.metrics.enabled }}
+
+Prometheus Metrics:
+* Metrics endpoint enabled at http://<pod-ip>:{{ .Values.metrics.port }}{{ .Values.metrics.path }}
+{{- if .Values.metrics.annotations.enabled }}
+* Prometheus scrape annotations added to pods (auto-discovery enabled)
+{{- end }}
+* To access metrics locally:
+  $ kubectl port-forward --namespace {{ .Release.Namespace }} svc/{{ include "ib-schema-registry.fullname" . }} {{ .Values.metrics.port }}:{{ .Values.metrics.port }}
+  $ curl http://localhost:{{ .Values.metrics.port }}{{ .Values.metrics.path }}
+{{- end }}
+
 To update the configuration:
 
 1. Edit your values and upgrade:
