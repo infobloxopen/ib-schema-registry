@@ -1,10 +1,16 @@
 #!/usr/bin/env bash
 # =============================================================================
-# SBOM Generation Script
+# SBOM Generation Script with Idempotent Caching
 # =============================================================================
 # Generates Software Bill of Materials (SBOM) for container images
 # Supports: CycloneDX and SPDX formats
 # Tool: Syft (https://github.com/anchore/syft)
+#
+# Features (Feature 004):
+#   - Idempotent operation: Re-running for same digest succeeds without conflicts
+#   - Hash-based verification: Detects when SBOM content is identical
+#   - Operation tracking: GENERATED, VERIFIED_IDENTICAL, or UPDATED status
+#   - Metadata persistence: Digest and hash stored for audit trail
 #
 # Usage:
 #   ./generate-sbom.sh <image:tag> <format> <output-file> [platform]
@@ -18,11 +24,31 @@
 # Requirements:
 #   - Syft v1.0.0+ installed (https://github.com/anchore/syft)
 #   - Docker or containerd runtime
+#   - jq for JSON processing
 #
 # Constitution: Aligns with multi-arch portability and supply-chain security
 # =============================================================================
 
 set -euo pipefail
+
+# Auto-detect Docker socket if DOCKER_HOST not set
+if [ -z "${DOCKER_HOST:-}" ]; then
+    # Check for standard Docker socket first
+    if [ -S "/var/run/docker.sock" ]; then
+        export DOCKER_HOST="unix:///var/run/docker.sock"
+    # Fallback to Rancher Desktop socket on macOS
+    elif [ -S "$HOME/.rd/docker.sock" ]; then
+        export DOCKER_HOST="unix://$HOME/.rd/docker.sock"
+    fi
+fi
+
+# Source idempotent caching library (Feature 004)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ ! -f "$SCRIPT_DIR/lib-idempotent.sh" ]; then
+    echo "Error: Idempotent caching library not found: $SCRIPT_DIR/lib-idempotent.sh" >&2
+    exit 1
+fi
+source "$SCRIPT_DIR/lib-idempotent.sh"
 
 # -----------------------------------------------------------------------------
 # Input Validation
@@ -105,6 +131,17 @@ if ! docker image inspect "$IMAGE" &> /dev/null; then
     exit 1
 fi
 
+# Get image digest for idempotency tracking (Feature 004)
+echo "→ Extracting image digest..."
+IMAGE_DIGEST=$(docker inspect --format='{{.RepoDigests}}' "$IMAGE" 2>/dev/null | grep -oE 'sha256:[a-f0-9]{64}' | head -1 || true)
+if [ -z "$IMAGE_DIGEST" ]; then
+    # Fallback: use image ID if digest not available
+    IMAGE_DIGEST=$(docker inspect --format='{{.ID}}' "$IMAGE" | sed 's|sha256:||')
+    echo "  Digest (from ID): $IMAGE_DIGEST"
+else
+    echo "  Digest: $IMAGE_DIGEST"
+fi
+
 # -----------------------------------------------------------------------------
 # SBOM Generation
 # -----------------------------------------------------------------------------
@@ -117,10 +154,18 @@ echo "  Output: $OUTPUT_FILE"
 OUTPUT_DIR=$(dirname "$OUTPUT_FILE")
 mkdir -p "$OUTPUT_DIR"
 
+# Feature 004: Idempotent SBOM Generation
+# Generate to temporary file first, then verify and move atomically
+TEMP_OUTPUT_FILE="$OUTPUT_FILE.tmp.$$"
+
+echo "→ Generating SBOM..."
+echo "  Format: $FORMAT"
+echo "  Output: $OUTPUT_FILE"
+
 # Generate SBOM with Syft
 SYFT_OPTS=(
     --quiet
-    --output "$FORMAT=$OUTPUT_FILE"
+    --output "$FORMAT=$TEMP_OUTPUT_FILE"
 )
 
 if [ -n "$PLATFORM" ]; then
@@ -129,7 +174,40 @@ fi
 
 if ! syft "${SYFT_OPTS[@]}" "$IMAGE"; then
     echo "Error: SBOM generation failed" >&2
+    rm -f "$TEMP_OUTPUT_FILE"
     exit 1
+fi
+
+# Verify generated SBOM format
+if ! validate_sbom_format "$TEMP_OUTPUT_FILE"; then
+    echo "Error: Generated SBOM is invalid" >&2
+    rm -f "$TEMP_OUTPUT_FILE"
+    exit 1
+fi
+
+# Feature 004: Check for existing SBOM and verify equivalence
+OPERATION="GENERATED"
+if detect_existing_sbom "$OUTPUT_FILE"; then
+    # Metadata exists, check if this is the same image digest (idempotent)
+    if verify_sbom_identical "$OUTPUT_FILE" "$IMAGE_DIGEST"; then
+        # Same digest, skip overwrite and mark as verified
+        OPERATION="VERIFIED_IDENTICAL"
+        rm -f "$TEMP_OUTPUT_FILE"
+    else
+        # Different digest, mark as updated and proceed with overwrite
+        OPERATION="UPDATED"
+    fi
+else
+    # No prior version, proceed with generation
+    OPERATION="GENERATED"
+fi
+
+# Only move file to final location if not VERIFIED_IDENTICAL
+if [ "$OPERATION" != "VERIFIED_IDENTICAL" ]; then
+    if ! atomic_sbom_rename "$TEMP_OUTPUT_FILE" "$OUTPUT_FILE"; then
+        echo "Error: Failed to finalize SBOM file" >&2
+        exit 1
+    fi
 fi
 
 # -----------------------------------------------------------------------------
@@ -142,31 +220,29 @@ if [ ! -f "$OUTPUT_FILE" ]; then
     exit 1
 fi
 
-# Get file size
+# Get file size and component count
 FILE_SIZE=$(du -h "$OUTPUT_FILE" | cut -f1)
 COMPONENT_COUNT=$(grep -o '"name"' "$OUTPUT_FILE" 2>/dev/null | wc -l || echo "unknown")
 
-echo "✓ SBOM generated successfully"
-echo "  File: $OUTPUT_FILE"
-echo "  Size: $FILE_SIZE"
+# Feature 004: Write idempotent metadata
+if ! write_sbom_metadata "$OUTPUT_FILE" "$IMAGE" "$IMAGE_DIGEST" "$PLATFORM" "$OPERATION"; then
+    echo "Error: Failed to write SBOM metadata" >&2
+    exit 1
+fi
+
+# Feature 004: Log operation status
+log_operation_status "$OPERATION" "$OUTPUT_FILE" "$FILE_SIZE"
 echo "  Components: ~$COMPONENT_COUNT"
 
-# Generate metadata file
+# Get metadata for summary output
 METADATA_FILE="${OUTPUT_FILE%.json}.metadata.json"
-cat > "$METADATA_FILE" <<EOF
-{
-  "image": "$IMAGE",
-  "platform": "$PLATFORM",
-  "format": "$FORMAT",
-  "generated_at": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
-  "tool": "syft",
-  "tool_version": "$SYFT_VERSION",
-  "file_size_bytes": $(stat -c%s "$OUTPUT_FILE" 2>/dev/null || stat -f%z "$OUTPUT_FILE"),
-  "output_file": "$OUTPUT_FILE"
-}
-EOF
-
-echo "  Metadata: $METADATA_FILE"
+if [ -f "$METADATA_FILE" ]; then
+    DIGEST_SUMMARY=$(jq -r '.digest // "unknown"' "$METADATA_FILE" 2>/dev/null || echo "unknown")
+    HASH_SUMMARY=$(jq -r '.content_hash // "unknown"' "$METADATA_FILE" 2>/dev/null | cut -c1-20)
+    echo "  Digest: $DIGEST_SUMMARY"
+    echo "  Hash: $HASH_SUMMARY..."
+    echo "  Metadata: $METADATA_FILE"
+fi
 
 # -----------------------------------------------------------------------------
 # Summary

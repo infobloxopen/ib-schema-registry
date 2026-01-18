@@ -212,7 +212,7 @@ sbom-install-tools: ## Install SBOM generation tools (Syft, Grype)
 	@grype version
 
 .PHONY: sbom
-sbom: ## Generate SBOM for built image (both CycloneDX and SPDX)
+sbom: ## Generate SBOM for built image (both CycloneDX and SPDX) - Idempotent operation
 	@echo "→ Generating SBOM for $(IMAGE):$(SBOM_TAG)..."
 	@mkdir -p $(SBOM_DIR)
 	@echo "  Platform: $(NATIVE_PLATFORM)"
@@ -236,8 +236,17 @@ sbom: ## Generate SBOM for built image (both CycloneDX and SPDX)
 	@echo "Generated files:"
 	@ls -lh $(SBOM_DIR)/$(SBOM_TAG)-$(NATIVE_ARCH).*
 	@echo ""
+	@echo "Metadata:"
+	@for metadata in $(SBOM_DIR)/$(SBOM_TAG)-$(NATIVE_ARCH).*.metadata.json; do \
+		if [ -f "$$metadata" ]; then \
+			echo "  $$metadata:"; \
+			command -v jq >/dev/null && jq -r '.operation // "unknown"' "$$metadata" | sed 's/^/    Operation: /'; \
+		fi; \
+	done
+	@echo ""
 	@echo "Next steps:"
 	@echo "  make sbom-validate SBOM_TAG=$(SBOM_TAG)  # Validate and scan for vulnerabilities"
+	@echo "  make sbom-idempotent-test SBOM_TAG=$(SBOM_TAG)  # Test idempotency (run twice)"
 
 .PHONY: sbom-multi
 sbom-multi: ## Generate SBOMs for all platforms (amd64 + arm64)
@@ -288,6 +297,65 @@ sbom-validate: ## Validate SBOMs and scan for vulnerabilities
 		fi; \
 	done
 	@echo "✓ All SBOM validations complete"
+
+.PHONY: sbom-idempotent-test
+sbom-idempotent-test: ## Test idempotency: Run SBOM generation twice, verify both succeed with same digest
+	@echo "═══════════════════════════════════════════════════════"
+	@echo "Idempotency Test: Generate SBOM twice for same image"
+	@echo "═══════════════════════════════════════════════════════"
+	@echo ""
+	@echo "Test Image: $(IMAGE):$(SBOM_TAG)"
+	@echo "Platform: $(NATIVE_PLATFORM)"
+	@echo ""
+	@mkdir -p $(SBOM_DIR)
+	@echo "───────────────────────────────────────────────────────"
+	@echo "RUN 1: Initial SBOM generation"
+	@echo "───────────────────────────────────────────────────────"
+	@bash scripts/sbom/generate-sbom.sh \
+		$(IMAGE):$(SBOM_TAG) \
+		cyclonedx-json \
+		$(SBOM_DIR)/$(SBOM_TAG)-$(NATIVE_ARCH).cyclonedx.json \
+		$(NATIVE_PLATFORM)
+	@echo ""
+	@if [ -f "$(SBOM_DIR)/$(SBOM_TAG)-$(NATIVE_ARCH).cyclonedx.json.metadata.json" ]; then \
+		echo "Run 1 Metadata:"; \
+		jq -r '.operation // "unknown"' "$(SBOM_DIR)/$(SBOM_TAG)-$(NATIVE_ARCH).cyclonedx.json.metadata.json" | sed 's/^/  Operation: /'; \
+		echo ""; \
+	fi
+	@echo "───────────────────────────────────────────────────────"
+	@echo "RUN 2: Re-run SBOM generation (should be idempotent)"
+	@echo "───────────────────────────────────────────────────────"
+	@bash scripts/sbom/generate-sbom.sh \
+		$(IMAGE):$(SBOM_TAG) \
+		cyclonedx-json \
+		$(SBOM_DIR)/$(SBOM_TAG)-$(NATIVE_ARCH).cyclonedx.json \
+		$(NATIVE_PLATFORM)
+	@echo ""
+	@if [ -f "$(SBOM_DIR)/$(SBOM_TAG)-$(NATIVE_ARCH).cyclonedx.json.metadata.json" ]; then \
+		echo "Run 2 Metadata:"; \
+		jq -r '.operation // "unknown"' "$(SBOM_DIR)/$(SBOM_TAG)-$(NATIVE_ARCH).cyclonedx.json.metadata.json" | sed 's/^/  Operation: /'; \
+		echo ""; \
+	fi
+	@echo "───────────────────────────────────────────────────────"
+	@echo "Idempotency Test Results:"
+	@echo "───────────────────────────────────────────────────────"
+	@if [ -f "$(SBOM_DIR)/$(SBOM_TAG)-$(NATIVE_ARCH).cyclonedx.json.metadata.json" ]; then \
+		OPERATION=$$(jq -r '.operation // "unknown"' "$(SBOM_DIR)/$(SBOM_TAG)-$(NATIVE_ARCH).cyclonedx.json.metadata.json"); \
+		if [ "$$OPERATION" = "VERIFIED_IDENTICAL" ]; then \
+			echo "✓ PASS: Second run reported VERIFIED_IDENTICAL"; \
+			echo "✓ PASS: SBOM file was not overwritten"; \
+			echo "✓ PASS: Idempotency working correctly"; \
+		else \
+			echo "✗ FAIL: Second run reported $$OPERATION (expected VERIFIED_IDENTICAL)"; \
+			exit 1; \
+		fi; \
+	else \
+		echo "✗ FAIL: Metadata file not found"; \
+		exit 1; \
+	fi
+	@echo ""
+	@echo "Generated SBOM files:"
+	@ls -lh $(SBOM_DIR)/$(SBOM_TAG)-$(NATIVE_ARCH).cyclonedx.json* 2>/dev/null || true
 
 .PHONY: sbom-clean
 sbom-clean: ## Remove generated SBOM files
