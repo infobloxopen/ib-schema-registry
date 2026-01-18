@@ -311,7 +311,8 @@ jobs:
 
       - name: Pull and test image
         run: |
-          IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}"
+          SHORT_SHA="$(echo ${{ github.sha }} | cut -c1-7)"
+          IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${SHORT_SHA}"
           docker pull "$IMAGE_TAG"
           
           # Run smoke tests
@@ -358,7 +359,8 @@ jobs:
             echo "Logging in to GHCR..."
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
             
-            IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}"
+            SHORT_SHA="$(echo ${{ github.sha }} | cut -c1-7)"
+            IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${SHORT_SHA}"
             echo "Pulling image: $IMAGE_TAG"
             docker pull "$IMAGE_TAG"
             docker tag "$IMAGE_TAG" "ib-schema-registry:test"
