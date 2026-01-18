@@ -115,52 +115,52 @@ Tasks are organized by phase and must be executed in order within each phase. Ta
 ## Phase 2: Makefile Integration (Local Build Support)
 
 ### T011: Update Makefile version variables
-- [ ] Add COMPUTED_VERSION variable using version.sh
-- [ ] Replace old VERSION extraction logic
-- [ ] Replace LOCAL_VERSION references with VERSION
-- [ ] Add UPSTREAM_VERSION variable
+- [X] Add COMPUTED_VERSION variable using version.sh
+- [X] Replace old VERSION extraction logic
+- [X] Replace LOCAL_VERSION references with VERSION
+- [X] Add UPSTREAM_VERSION variable
 - **Files**: `Makefile`
 - **Dependencies**: T007
 - **Validation**: make shows correct VERSION value
 
 ### T012: Remove LOCAL_VERSION variable
-- [ ] Remove LOCAL_VERSION definition
-- [ ] Replace all LOCAL_VERSION references with VERSION
-- [ ] Update BUILD_ARGS to use VERSION consistently
-- [ ] Update OCI labels to use new version format
+- [X] Remove LOCAL_VERSION definition
+- [X] Replace all LOCAL_VERSION references with VERSION
+- [X] Update BUILD_ARGS to use VERSION consistently
+- [X] Update OCI labels to use new version format
 - **Files**: `Makefile`
 - **Dependencies**: T011
 - **Validation**: No LOCAL_VERSION references remain
 
 ### T013: Add make version target
-- [ ] Create version target that displays computed version info
-- [ ] Show all version components in readable format
-- [ ] Mark as .PHONY
+- [X] Create version target that displays computed version info
+- [X] Show all version components in readable format
+- [X] Mark as .PHONY
 - **Files**: `Makefile`
 - **Dependencies**: T011
 - **Validation**: make version displays version info
 
 ### T014: Add make version-validate target [P]
-- [ ] Create version-validate target
-- [ ] Call validate-version.sh with computed VERSION
-- [ ] Mark as .PHONY
+- [X] Create version-validate target
+- [X] Call validate-version.sh with computed VERSION
+- [X] Mark as .PHONY
 - **Files**: `Makefile`
 - **Dependencies**: T010, T013
 - **Validation**: make version-validate passes
 
 ### T015: Update make help output [P]
-- [ ] Add version targets to help text
-- [ ] Update examples to show new version format
-- [ ] Document VERSION override capability
+- [X] Add version targets to help text
+- [X] Update examples to show new version format
+- [X] Document VERSION override capability
 - **Files**: `Makefile`
 - **Dependencies**: T013
 - **Validation**: make help shows version targets
 
 ### T016: Test Makefile changes
-- [ ] Test make version from main branch
-- [ ] Test make version from feature branch
-- [ ] Test make version with dirty tree
-- [ ] Test make build VERSION=custom override
+- [X] Test make version from main branch
+- [X] Test make version from feature branch
+- [X] Test make version with dirty tree
+- [X] Test make build VERSION=custom override
 - **Files**: None (testing)
 - **Dependencies**: T011-T015
 - **Validation**: All test scenarios pass

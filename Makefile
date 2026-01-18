@@ -23,16 +23,18 @@ PLATFORMS ?= linux/amd64,linux/arm64
 NATIVE_ARCH := $(shell uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
 NATIVE_PLATFORM := linux/$(NATIVE_ARCH)
 
-# Version metadata (extracted from git and submodule)
-VERSION ?= $(shell cd upstream/schema-registry 2>/dev/null && git describe --tags --abbrev=0 2>/dev/null || echo "dev")
-LOCAL_VERSION ?= $(VERSION)+infoblox.1
-REVISION := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+# Version metadata (computed using version script)
+VERSION ?= $(shell ./scripts/version.sh --quiet 2>/dev/null || echo "dev")
+UPSTREAM_VERSION ?= $(shell ./scripts/version.sh --format=export --quiet 2>/dev/null | grep '^UPSTREAM_VERSION=' | cut -d'"' -f2 || echo "dev")
+SHA ?= $(shell ./scripts/version.sh --format=export --quiet 2>/dev/null | grep '^SHA=' | cut -d'"' -f2 || git rev-parse --short=7 HEAD 2>/dev/null || echo "unknown")
+REVISION := $(SHA)
 CREATED := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 # Docker build arguments
 BUILD_ARGS := --build-arg BUILDER_IMAGE=$(BUILDER_IMAGE) \
               --build-arg RUNTIME_IMAGE=$(RUNTIME_IMAGE) \
-              --build-arg VERSION=$(LOCAL_VERSION) \
+              --build-arg VERSION=$(VERSION) \
+              --build-arg UPSTREAM_VERSION=$(UPSTREAM_VERSION) \
               --build-arg REVISION=$(REVISION) \
               --build-arg CREATED=$(CREATED)
 
@@ -56,7 +58,8 @@ help: ## Display available targets
 	@echo "Configuration:"
 	@echo "  IMAGE=$(IMAGE)"
 	@echo "  TAG=$(TAG)"
-	@echo "  VERSION=$(LOCAL_VERSION)"
+	@echo "  VERSION=$(VERSION)"
+	@echo "  UPSTREAM_VERSION=$(UPSTREAM_VERSION)"
 	@echo "  NATIVE_PLATFORM=$(NATIVE_PLATFORM)"
 	@echo ""
 	@echo "Base Images:"
@@ -64,10 +67,11 @@ help: ## Display available targets
 	@echo "  RUNTIME_IMAGE=$(RUNTIME_IMAGE)"
 	@echo ""
 	@echo "Examples:"
+	@echo "  make version                        # Show computed version"
 	@echo "  make build                          # Build for native platform"
 	@echo "  make buildx                         # Build for all platforms"
 	@echo "  make build RUNTIME_IMAGE=eclipse-temurin:17-jre  # Temurin alternative"
-	@echo "  make push IMAGE=ghcr.io/infobloxopen/schema-registry TAG=v7.6.1"
+	@echo "  make push IMAGE=ghcr.io/infobloxopen/schema-registry TAG=v8.1.1"
 	@echo ""
 
 .PHONY: submodule-init
@@ -83,11 +87,32 @@ submodule-update: ## Update upstream Schema Registry to latest version
 	@cd upstream/schema-registry && git describe --tags
 	@echo "✓ Submodule updated"
 
+.PHONY: version
+version: ## Display computed version information
+	@echo "═══════════════════════════════════════════════════════"
+	@echo "Version Information"
+	@echo "═══════════════════════════════════════════════════════"
+	@./scripts/version.sh --format=make | sed 's/^/  /'
+	@echo ""
+	@echo "Full version string:"
+	@echo "  $(VERSION)"
+	@echo ""
+	@echo "Format: <upstream>-ib.<suffix>.<sha>[.dirty]"
+	@echo "  upstream: Upstream Confluent Schema Registry version"
+	@echo "  suffix:   Release number OR branch name (sanitized)"
+	@echo "  sha:      Short Git commit SHA (7 characters)"
+	@echo "  .dirty:   Present if uncommitted changes exist"
+
+.PHONY: version-validate
+version-validate: ## Validate computed version format
+	@echo "→ Validating computed version..."
+	@./scripts/validate-version.sh "$(VERSION)"
+
 .PHONY: build
 build: ## Build container image for native platform
 	@echo "→ Building $(IMAGE):$(TAG) for $(NATIVE_PLATFORM)..."
 	@echo "  Base images: $(BUILDER_IMAGE) → $(RUNTIME_IMAGE)"
-	@echo "  Version: $(LOCAL_VERSION) ($(REVISION))"
+	@echo "  Version: $(VERSION) (upstream: $(UPSTREAM_VERSION), sha: $(SHA))"
 	docker build \
 		--platform $(NATIVE_PLATFORM) \
 		$(BUILD_ARGS) \
@@ -99,7 +124,7 @@ build: ## Build container image for native platform
 buildx: ## Build multi-architecture image (amd64 + arm64)
 	@echo "→ Building $(IMAGE):$(TAG) for $(PLATFORMS)..."
 	@echo "  Base images: $(BUILDER_IMAGE) → $(RUNTIME_IMAGE)"
-	@echo "  Version: $(LOCAL_VERSION) ($(REVISION))"
+	@echo "  Version: $(VERSION) (upstream: $(UPSTREAM_VERSION), sha: $(SHA))"
 	docker buildx build \
 		--platform $(PLATFORMS) \
 		$(BUILD_ARGS) \
@@ -142,7 +167,8 @@ clean: ## Remove built images
 info: ## Display build configuration
 	@echo "Build Configuration:"
 	@echo "  Image: $(IMAGE):$(TAG)"
-	@echo "  Version: $(LOCAL_VERSION)"
+	@echo "  Version: $(VERSION)"
+	@echo "  Upstream Version: $(UPSTREAM_VERSION)"
 	@echo "  Revision: $(REVISION)"
 	@echo "  Created: $(CREATED)"
 	@echo "  Native Platform: $(NATIVE_PLATFORM)"
