@@ -48,6 +48,12 @@ RUN --mount=type=cache,target=/root/.m2 \
     -Dhttp.keepAlive=false \
     -Dmaven.wagon.http.pool=false
 
+# Build JMX Prometheus Exporter from source
+COPY upstream/jmx_exporter /workspace/upstream/jmx_exporter
+WORKDIR /workspace/upstream/jmx_exporter
+RUN --mount=type=cache,target=/root/.m2 \
+    mvn clean package -DskipTests
+
 # =============================================================================
 # Runtime Stage - Minimal JRE with Schema Registry
 # =============================================================================
@@ -81,9 +87,9 @@ COPY --from=builder --chown=65532:65532 \
     /app/schema-registry.jar
 
 # Copy JMX Prometheus Exporter javaagent for metrics collection
-# Downloaded by maven-dependency-plugin during build (see pom.xml)
+# Built from upstream source in jmx_exporter submodule
 COPY --from=builder --chown=65532:65532 \
-    /workspace/upstream/schema-registry/package-schema-registry/target/jmx-exporter/jmx_prometheus_javaagent.jar \
+    /workspace/upstream/jmx_exporter/jmx_prometheus_javaagent/target/jmx_prometheus_javaagent-*.jar \
     /opt/jmx-exporter/jmx_prometheus_javaagent.jar
 
 # Copy default configuration

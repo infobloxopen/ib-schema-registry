@@ -12,14 +12,6 @@ This directory contains patches applied to the upstream Confluent Schema Registr
 - Netty: 4.1.128.Final → 4.1.115.Final (CVE mitigation)
 - Log4j: 2.24.3 → 2.25.3 (CVE mitigation)
 
-### 002-jmx-prometheus-metrics.patch
-**Purpose**: Add Prometheus JMX metrics export support  
-**Affects**: `package-schema-registry/pom.xml`  
-**Changes**:
-- Add maven-dependency-plugin to fetch `io.prometheus.jmx:jmx_prometheus_javaagent:1.0.1`
-- Download javaagent jar during `prepare-package` phase
-- Output to `target/jmx-exporter/jmx_prometheus_javaagent.jar`
-
 ## Managing Patches
 
 ### Creating a New Patch

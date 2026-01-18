@@ -7,13 +7,13 @@
 
 ## Summary
 
-Add Prometheus JMX metrics export capability to Schema Registry container via in-process javaagent integration. Primary requirement: enable Prometheus scraping of Schema Registry JMX metrics through HTTP /metrics endpoint without requiring separate sidecars or remote JMX ports. Technical approach: integrate `io.prometheus.jmx:jmx_prometheus_javaagent` (version 1.0.1) into build pipeline, package in container image, and provide Helm chart controls for opt-in enablement with ConfigMap-based configuration.
+Add Prometheus JMX metrics export capability to Schema Registry container via in-process javaagent integration. Primary requirement: enable Prometheus scraping of Schema Registry JMX metrics through HTTP /metrics endpoint without requiring separate sidecars or remote JMX ports. Technical approach: build Prometheus JMX Exporter from source as a git submodule (version 1.5.0), integrate into Docker build pipeline, package in container image, and provide Helm chart controls for opt-in enablement with ConfigMap-based configuration.
 
 ## Technical Context
 
 **Language/Version**: Java 17 (inherited from upstream Confluent Schema Registry)  
 **Primary Dependencies**: 
-- `io.prometheus.jmx:jmx_prometheus_javaagent:1.0.1` (new dependency)
+- Prometheus JMX Exporter v1.5.0 (built from source via git submodule)
 - Maven 3+ (existing build system)
 - Confluent Schema Registry 8.1.1 (current upstream version)
 
@@ -58,8 +58,8 @@ Add Prometheus JMX metrics export capability to Schema Registry container via in
 - [x] **Distroless compatibility**: Javaagent loaded via JAVA_TOOL_OPTIONS environment variable (exec-form compatible). No shell scripts in entrypoint. ConfigMap provides YAML config file (no shell parsing required).
 - [x] **Supply-chain security**: 
   - [x] Runtime images continue to run as non-root user (no privilege escalation).
-  - [x] Javaagent jar fetched from Maven Central during build via maven-dependency-plugin (trusted source).
-  - [x] No new binary downloads or `curl | bash` patterns.
+  - [x] Javaagent built from source in git submodule (upstream/jmx_exporter at tag 1.5.0).
+  - [x] No binary downloads from untrusted sources.
   - [x] OCI labels unchanged (existing versioning scheme applies).
 - [x] **Licensing compliance**: Prometheus JMX Exporter is Apache 2.0 licensed (compatible). No upstream Schema Registry code modifications. README will document new dependency license.
 - [x] **Repository ergonomics**: No new Makefile targets required (existing `make build`, `make build-multiarch`, `make test` work unchanged). Helm chart changes are self-documenting via values.yaml comments.
@@ -79,7 +79,7 @@ Add Prometheus JMX metrics export capability to Schema Registry container via in
   - ✅ Environment variable injection only (JAVA_TOOL_OPTIONS)
   - ✅ No startup scripts or bash dependencies
 - [x] **Supply-chain security**: 
-  - [x] Design documents Maven Central as single trusted source for javaagent jar.
+  - [x] Design documents git submodule at pinned tag (1.5.0) as trusted source for javaagent jar.
   - [x] Helm ConfigMap contains only YAML configuration (no executable code).
   - [x] No new network ports opened except metrics endpoint (HTTP only, no RMI/JMX remote).
   - [x] Metrics endpoint exposes only operational telemetry (no sensitive data).

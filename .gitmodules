@@ -1,3 +1,6 @@
 [submodule "upstream/schema-registry"]
 	path = upstream/schema-registry
 	url = https://github.com/confluentinc/schema-registry.git
+[submodule "upstream/jmx_exporter"]
+	path = upstream/jmx_exporter
+	url = https://github.com/prometheus/jmx_exporter.git

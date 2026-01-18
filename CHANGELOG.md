@@ -81,10 +81,11 @@ helm install schema-registry oci://ghcr.io/infobloxopen/ib-schema-registry \
 ```
 
 **Implementation Details**:
-- Maven dependency: `io.prometheus.jmx:jmx_prometheus_javaagent:1.0.1` (Apache 2.0 licensed)
+- Build method: Source build from git submodule `upstream/jmx_exporter` at tag `1.5.0`
 - Integration: Javaagent loaded via `JAVA_TOOL_OPTIONS` (distroless-compatible)
 - Configuration: ConfigMap-based JMX exporter config with sensible defaults
 - Architecture: In-process metrics collection (no sidecar required)
+- License: Apache 2.0 (upstream jmx_exporter)
 
 **Documentation**:
 - Helm chart README: [helm/ib-schema-registry/README.md#monitoring](helm/ib-schema-registry/README.md#monitoring)
