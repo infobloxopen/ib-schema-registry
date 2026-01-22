@@ -76,7 +76,9 @@ make test
 docker run -d \
   --name schema-registry \
   -p 8081:8081 \
-  -e KAFKA_BOOTSTRAP_SERVERS=kafka:9092 \
+  -e SCHEMA_REGISTRY_HOST_NAME=schema-registry \
+  -e SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS=PLAINTEXT://kafka:9092 \
+  -e SCHEMA_REGISTRY_LISTENERS=http://0.0.0.0:8081 \
   ib-schema-registry:latest
 
 # Health check
